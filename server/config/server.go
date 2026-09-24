@@ -14,12 +14,12 @@ type ServerConfig struct {
 }
 
 func NewServerConfig() *ServerConfig {
-	port, err := strconv.Atoi(KeyPostgresPort.GetValue())
+	port, err := strconv.Atoi(KeyPort.GetValue())
 	if err != nil {
 		port = defaultPort
 	}
 
-	logLevel := KeyLogLevel.GetValueDefault(string(slog.LevelInfo))
+	logLevel := KeyLogLevel.GetValueDefault(slog.LevelInfo.String())
 	return &ServerConfig{
 		port:     port,
 		logLevel: logLevel,
