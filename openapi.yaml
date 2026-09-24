@@ -3,8 +3,8 @@ info:
   title: GoSwipe API
   description: >
     Бэкенд мини-аппа «GoSwipe» в мессенджере Макс. Персональная лента мероприятий
-    с фильтрами и скорингом по интересам пользователя, без рекомендательной системы
-  version: "1.0.0"
+    с фильтрами и скорингом по интересам пользователя, без рекомендательной системы.
+  version: "1.1.0"
 
 servers:
   - url: http://localhost:8080/api
@@ -21,6 +21,8 @@ tags:
     description: Экран избранного
   - name: profile
     description: Профиль и предпочтения
+  - name: uploads
+    description: Загрузка изображений
 
 paths:
   /auth/max:
@@ -81,13 +83,13 @@ paths:
                 city:
                   type: string
                   example: Москва
-                birth_year:
-                  type: integer
-                  example: 2003
-                budget_max:
-                  type: integer
-                  nullable: true
-                  example: 1500
+                birth_date:
+                  type: string
+                  format: date
+                  example: "2003-05-14"
+                  description: >
+                    Заменяет прежнее поле birth_year — БД хранит полную дату
+                    рождения (birth_date), не только год.
                 categories:
                   type: array
                   description: Выбранные на онбординге категории — получат стартовый positive-вес
@@ -96,7 +98,9 @@ paths:
                 onboarding_text:
                   type: string
                   maxLength: 500
-                  description: Свободный текст «люблю то-то», опционально размечается LLM в теги
+                  description: >
+                    Свободный текст «люблю то-то», опционально размечается LLM в теги.
+                    На бэкенде сохраняется в колонку users.info.
       responses:
         "200":
           description: Профиль заполнен
@@ -105,14 +109,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
 
-
   /events:
     get:
       tags: [events]
       summary: Лента мероприятий (поиск + фильтры + скоринг)
       description: >
-        Возвращает события, отсортированные по персональному скору
-        (совпадение с user_interests), уже просмотренные (лайк/скип) исключены.
+        Возвращает события с starts_at в будущем (status=active),
+        отсортированные по персональному скору (совпадение с user_interests).
+        Уже просмотренные (лайк/скип) исключены.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: q
@@ -165,21 +169,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Event"
-                  total:
-                    type: integer
+                $ref: "#/components/schemas/EventList"
 
     post:
       tags: [events]
       summary: Создать мероприятие
       description: >
         Экран «создать мероприятие». Событие сохраняется с source='user',
-        created_by=id автора. Модерация в MVP не предусмотрена (см. README).
+        created_by=id автора и сразу видно всем — модерации нет.
+        Появляется в общей ленте (GET /events) сразу же, пока starts_at
+        не наступил.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -189,7 +188,7 @@ paths:
               $ref: "#/components/schemas/EventInput"
       responses:
         "201":
-          description: Мероприятие создано
+          description: Мероприятие создано и сразу видно в ленте
           content:
             application/json:
               schema:
@@ -200,6 +199,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /events/mine:
+    get:
+      tags: [events]
+      summary: Мои мероприятия
+      description: >
+        Все события, созданные текущим пользователем (created_by = id
+        текущего пользователя), включая уже прошедшие (finished).
+        Формат ответа идентичен GET /events.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Список мероприятий пользователя, отсортирован по starts_at по убыванию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
 
   /events/{eventId}:
     get:
@@ -222,7 +250,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
 
   /events/{eventId}/swipe:
     post:
@@ -258,7 +285,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-
 
   /favorites:
     get:
@@ -338,7 +364,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-
   /profile:
     get:
       tags: [profile]
@@ -355,7 +380,7 @@ paths:
     patch:
       tags: [profile]
       summary: Изменить предпочтения
-      description: Город, бюджет, ручная корректировка весов интересов.
+      description: Город, ручная корректировка весов интересов.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -366,9 +391,6 @@ paths:
               properties:
                 city:
                   type: string
-                budget_max:
-                  type: integer
-                  nullable: true
                 interests:
                   type: array
                   description: Полная замена набора весов, которые пользователь правит вручную
@@ -381,6 +403,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+
+  /uploads:
+    post:
+      tags: [uploads]
+      summary: Загрузить обложку мероприятия
+      description: >
+        Принимает изображение, сохраняет локально на сервере (без S3 —
+        для MVP не нужен), возвращает публичный URL. Этот URL фронт
+        подставляет в EventInput.image_url при создании мероприятия.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: png, jpeg или webp, не более 5 МБ
+      responses:
+        "201":
+          description: Файл сохранён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    example: "https://<домен>/uploads/3f2b1c.jpg"
+        "400":
+          description: Неверный формат или файл превышает 5 МБ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -395,8 +456,8 @@ components:
       in: path
       required: true
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   schemas:
     EventCategory:
@@ -414,26 +475,35 @@ components:
         - volunteering
         - other
 
+    EventStatus:
+      type: string
+      description: >
+        Модерации нет — событие видно сразу после создания.
+        active — starts_at ещё не наступил. finished — starts_at уже прошёл.
+        Оба значения вычисляются бэкендом на чтении, не хранятся и не
+        задаются клиентом.
+      enum: [active, finished]
+
     User:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         max_user_id:
           type: integer
           format: int64
         name:
           type: string
-          maxLength: 100
+          maxLength: 64
+          nullable: true
         city:
           type: string
-          maxLength: 100
-        birth_year:
-          type: integer
+          maxLength: 64
           nullable: true
-        budget_max:
-          type: integer
+        birth_date:
+          type: string
+          format: date
           nullable: true
         created_at:
           type: string
@@ -461,14 +531,14 @@ components:
 
     EventInput:
       type: object
-      required: [title, category, city, starts_at]
+      required: [title, description, category, city, starts_at, ends_at]
       properties:
         title:
           type: string
-          maxLength: 200
+          maxLength: 128
         description:
           type: string
-          maxLength: 2000
+          maxLength: 2048
         category:
           $ref: "#/components/schemas/EventCategory"
         tags:
@@ -477,29 +547,17 @@ components:
             type: string
         city:
           type: string
-          maxLength: 100
+          maxLength: 64
         venue:
           type: string
-          maxLength: 200
-        address:
-          type: string
-          maxLength: 300
-        lat:
-          type: number
-          format: double
-          nullable: true
-        lon:
-          type: number
-          format: double
-          nullable: true
+          maxLength: 256
         starts_at:
           type: string
           format: date-time
         ends_at:
           type: string
           format: date-time
-          nullable: true
-        price_min:
+        price:
           type: integer
           default: 0
         age_limit:
@@ -507,10 +565,11 @@ components:
           default: 0
         url:
           type: string
-          maxLength: 500
+          maxLength: 512
         image_url:
           type: string
-          maxLength: 500
+          maxLength: 512
+          description: Ссылка на обложку. Можно получить через POST /uploads.
 
     Event:
       allOf:
@@ -518,31 +577,46 @@ components:
         - type: object
           properties:
             id:
-              type: integer
-              format: int64
+              type: string
+              format: uuid
+            status:
+              $ref: "#/components/schemas/EventStatus"
             source:
               type: string
               maxLength: 50
             is_synthetic:
               type: boolean
-              description: Тестовые/синтетические данные — явно помечено согласно требованиям хакатона
+              description: >
+                Вычисляется бэкендом как (source == 'synthetic').
+                Тестовые/синтетические данные — явно помечено согласно
+                требованиям хакатона.
             created_by:
-              type: integer
-              format: int64
+              type: string
+              format: uuid
               nullable: true
             fetched_at:
               type: string
               format: date-time
 
+    EventList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        total:
+          type: integer
+
     Swipe:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         event_id:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
         action:
           type: string
           enum: [like, skip]
