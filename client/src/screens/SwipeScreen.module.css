@@ -1,0 +1,231 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px var(--screen-x) 14px;
+}
+
+.brand {
+  font-family: Unbounded, sans-serif;
+  font-weight: 700;
+  font-size: 21px;
+}
+
+.iconBtn {
+  composes: glass from '../styles/shared.module.css';
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-icon-btn);
+  cursor: pointer;
+  color: var(--icon-strong);
+}
+
+.searchWrap { padding: 0 var(--screen-x) 16px; }
+
+.search {
+  composes: glass from '../styles/shared.module.css';
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+}
+
+.searchIcon { color: var(--muted); }
+
+.searchInput {
+  flex-grow: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* --- колода карточек --- */
+.deck {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.stack {
+  position: relative;
+  width: 342px;
+  max-width: calc(100vw - 48px);
+  height: 498px;
+}
+
+.behind2 {
+  position: absolute;
+  left: 18px;
+  top: 20px;
+  right: 18px;
+  height: 478px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 30px;
+}
+
+.behind1 {
+  position: absolute;
+  left: 9px;
+  top: 10px;
+  right: 9px;
+  height: 488px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 30px;
+}
+
+.card {
+  composes: glassCard from '../styles/shared.module.css';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-radius: var(--r-card);
+  text-decoration: none;
+  color: inherit;
+}
+
+.cover {
+  position: relative;
+  height: 262px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+.rubric {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 8px 13px;
+  background: rgba(12, 8, 20, 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.body {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 18px 12px 12px;
+}
+
+.title {
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--icon);
+}
+
+.metaText {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.counter {
+  font-size: 13px;
+  color: var(--muted-2);
+}
+
+/* --- кнопки действий --- */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 4px 0 16px;
+}
+
+.skip {
+  composes: btn btnCircle btnGhost from '../styles/shared.module.css';
+  width: 62px;
+  height: 62px;
+}
+
+.skipIcon { color: var(--text-3); }
+
+.like {
+  composes: btn btnCircle from '../styles/shared.module.css';
+  width: 70px;
+  height: 70px;
+  /* keyframes лежат глобально в index.css — :global не даёт CSS Modules
+     переименовать ссылку на них. */
+  animation: glow 3.4s ease-in-out infinite;
+}
+
+/* Этот keyframes живёт здесь, а не в index.css: CSS Modules переименовывает
+   animation-name в любом .module.css, поэтому ссылка на глобальный glow
+   не разрешилась бы. drift-* остаются глобальными — на них ссылаются
+   инлайновые стили блобов, которые не скоупятся. */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 26px rgba(217, 70, 239, 0.42); }
+  50%      { box-shadow: 0 0 44px rgba(217, 70, 239, 0.72); }
+}
+
+/* --- пустое состояние --- */
+.empty {
+  composes: glass from '../styles/shared.module.css';
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 var(--screen-x) 16px;
+  padding: 34px 30px;
+  border-radius: var(--r-card);
+  text-align: center;
+}
+
+.emptyIcon { color: var(--muted); }
+
+.emptyTitle {
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.emptyBtn {
+  composes: btn from '../styles/shared.module.css';
+  margin-top: 4px;
+  height: 52px;
+  padding: 0 28px;
+  font-size: 15px;
+}

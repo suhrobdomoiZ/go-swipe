@@ -1,0 +1,9 @@
+.blob {
+  position: absolute;
+  border-radius: var(--r-pill);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none !important; }
+}
