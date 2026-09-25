@@ -10,20 +10,23 @@ const defaultPort = 8080
 
 type ServerConfig struct {
 	port     int
-	logLevel string
+	logLevel slog.Level
 }
 
-func NewServerConfig() *ServerConfig {
+func NewServerConfig() (*ServerConfig, error) {
 	port, err := strconv.Atoi(KeyPort.GetValue())
 	if err != nil {
-		port = defaultPort
+		return nil, err
 	}
-
-	logLevel := KeyLogLevel.GetValueDefault(slog.LevelInfo.String())
+	var logLevel slog.Level
+	err = logLevel.UnmarshalText([]byte(KeyLogLevel.GetValueDefault(slog.LevelInfo.String())))
+	if err != nil {
+		return nil, err
+	}
 	return &ServerConfig{
 		port:     port,
 		logLevel: logLevel,
-	}
+	}, nil
 }
 
 func (c *ServerConfig) Port() int {
@@ -34,6 +37,6 @@ func (c *ServerConfig) Address() string {
 	return fmt.Sprintf(":%d", c.port)
 }
 
-func (c *ServerConfig) LogLevel() string {
+func (c *ServerConfig) LogLevel() slog.Level {
 	return c.logLevel
 }
