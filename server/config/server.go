@@ -6,11 +6,10 @@ import (
 	"strconv"
 )
 
-const defaultPort = 8080
-
 type ServerConfig struct {
-	port     int
-	logLevel slog.Level
+	port      int
+	logLevel  slog.Level
+	secretKey []byte
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -18,14 +17,18 @@ func NewServerConfig() (*ServerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var logLevel slog.Level
 	err = logLevel.UnmarshalText([]byte(KeyLogLevel.GetValueDefault(slog.LevelInfo.String())))
 	if err != nil {
 		return nil, err
 	}
+
+	secretKey := []byte(KeySecretKey.GetValueDefault("secret-key"))
 	return &ServerConfig{
-		port:     port,
-		logLevel: logLevel,
+		port:      port,
+		logLevel:  logLevel,
+		secretKey: secretKey,
 	}, nil
 }
 
@@ -39,4 +42,8 @@ func (c *ServerConfig) Address() string {
 
 func (c *ServerConfig) LogLevel() slog.Level {
 	return c.logLevel
+}
+
+func (c *ServerConfig) SecretKey() []byte {
+	return c.secretKey
 }

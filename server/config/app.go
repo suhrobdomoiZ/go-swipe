@@ -6,10 +6,10 @@ type AppConfig struct {
 	Postgres *PostgresConfig
 }
 
-func NewAppConfig() *AppConfig {
+func NewAppConfig(maxConfig *MaxConfig, serverConfig *ServerConfig, postgresConfig *PostgresConfig) *AppConfig {
 	return &AppConfig{
-		Max:      NewMaxConfig(),
-		Server:   NewServerConfig(),
-		Postgres: NewPostgresConfig(),
+		Max:      maxConfig,
+		Server:   serverConfig,
+		Postgres: postgresConfig,
 	}
 }

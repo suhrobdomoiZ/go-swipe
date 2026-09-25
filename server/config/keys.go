@@ -12,6 +12,7 @@ const (
 	KeyPostgresDatabase config.Key = "POSTGRES_DATABASE"
 	KeyPostgresSSLMode  config.Key = "POSTGRES_SSL_MODE"
 
-	KeyPort     config.Key = "PORT"
-	KeyLogLevel config.Key = "LOG_LEVEL"
+	KeyPort      config.Key = "PORT"
+	KeyLogLevel  config.Key = "LOG_LEVEL"
+	KeySecretKey config.Key = "SECRET_KEY"
 )
