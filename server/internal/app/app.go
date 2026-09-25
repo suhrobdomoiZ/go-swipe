@@ -17,11 +17,11 @@ func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error
 	server := echo.New()
 	server.Logger = logger.InitLogger(config.Server.LogLevel())
 
-	// repositories := InitRepositories(pool)
-	// services(repositories)
-	// handlers(services)
+	repositories := InitRepositories(pool)
+	services := InitServices(config, repositories)
+	handlers := InitHandlers(config, services)
 
-	// AddHandlers
+	AddHandlers(config, server, handlers)
 	return server, nil
 }
 

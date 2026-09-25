@@ -6,6 +6,6 @@ type Services struct {
 	// Сервисы
 }
 
-func InitServices(config config.AppConfig, repositories *Repositories) *Services {
+func InitServices(config *config.AppConfig, repositories *Repositories) *Services {
 	return &Services{}
 }
