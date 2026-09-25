@@ -5,6 +5,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	echojwt "github.com/labstack/echo-jwt/v5"
 	"github.com/labstack/echo/v5"
+	echomw "github.com/labstack/echo/v5/middleware"
 	"github.com/suhrobdomoiZ/go-swipe/server/config"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/middleware"
@@ -24,8 +25,13 @@ func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error
 	return server, nil
 }
 
-func AddHandlers(config *config.AppConfig, server *echo.Echo) {
+func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers) {
+	// jwtConfig := InitJWTConfig(config.Server.SecretKey())
 
+	server.Use(echomw.Recover())
+	server.Use(echomw.RequestLogger())
+
+	server.GET("/health", handlers.health.Health)
 }
 
 func InitJWTConfig(secretKey []byte) echojwt.Config {
