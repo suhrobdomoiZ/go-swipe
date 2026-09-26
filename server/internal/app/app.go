@@ -32,13 +32,17 @@ func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error
 }
 
 func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers) {
-	// jwtConfig := InitJWTConfig(config.Server.SecretKey())
+	jwtConfig := InitJWTConfig(config.Server.SecretKey())
 
 	server.Use(echomw.Recover())
 	server.Use(echomw.RequestLogger())
 
 	server.GET("/health", handlers.health.Health)
 	server.GET("/test-bot", handlers.maxBot.SendMessage)
+	server.POST("/api/auth/max", handlers.auth.Login)
+
+	api := server.Group("/api")
+	api.Use(echojwt.WithConfig(jwtConfig))
 }
 
 func InitJWTConfig(secretKey []byte) echojwt.Config {
@@ -53,7 +57,7 @@ func InitJWTConfig(secretKey []byte) echojwt.Config {
 		},
 		SigningKey:  secretKey,
 		ContextKey:  middleware.KeyToken,
-		TokenLookup: "cookie:" + domain.CookieAuthJWT,
+		TokenLookup: "header:Authorization:Bearer ",
 		NewClaimsFunc: func(_ *echo.Context) jwt.Claims {
 			return new(model.JWTAuthData)
 		},

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
 )
 
 type repositoryCtxtKey string
@@ -23,4 +24,8 @@ type IExecutor interface {
 
 type TransactionManager interface {
 	WithTransaction(ctx context.Context, function func(ctx context.Context) error) error
+}
+
+type IUser interface {
+	GetOrCreateByMaxID(ctx context.Context, maxUserID int64) (domain.User, error)
 }

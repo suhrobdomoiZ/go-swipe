@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 )
 
 type ServerConfig struct {
 	port      int
 	logLevel  slog.Level
 	secretKey []byte
+	jwtTTL    time.Duration
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -25,10 +27,15 @@ func NewServerConfig() (*ServerConfig, error) {
 	}
 
 	secretKey := []byte(KeySecretKey.GetValueDefault("secret-key"))
+	jwtTTL, err := time.ParseDuration(KeyJWTTTL.GetValue())
+	if err != nil {
+		return nil, err
+	}
 	return &ServerConfig{
 		port:      port,
 		logLevel:  logLevel,
 		secretKey: secretKey,
+		jwtTTL:    jwtTTL,
 	}, nil
 }
 
@@ -46,4 +53,8 @@ func (c *ServerConfig) LogLevel() slog.Level {
 
 func (c *ServerConfig) SecretKey() []byte {
 	return c.secretKey
+}
+
+func (c *ServerConfig) JWTTTL() time.Duration {
+	return c.jwtTTL
 }

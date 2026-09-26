@@ -15,4 +15,5 @@ const (
 	KeyPort      config.Key = "PORT"
 	KeyLogLevel  config.Key = "LOG_LEVEL"
 	KeySecretKey config.Key = "SECRET_KEY"
+	KeyJWTTTL    config.Key = "JWT_TTL"
 )

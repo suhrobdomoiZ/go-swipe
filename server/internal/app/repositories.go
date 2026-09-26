@@ -7,13 +7,15 @@ import (
 
 type Repositories struct {
 	txManager repository.TransactionManager
-	// Интерфейсы репозиториев
+	user      repository.IUser
 }
 
 func InitRepositories(pool *pgxpool.Pool) *Repositories {
 	executor := repository.NewExecutor(pool)
+	user := repository.NewUser(executor)
 
 	return &Repositories{
 		txManager: executor,
+		user:      user,
 	}
 }

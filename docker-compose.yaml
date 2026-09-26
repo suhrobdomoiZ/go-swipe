@@ -39,6 +39,7 @@ services:
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN}
       PORT: ${PORT}
       LOG_LEVEL: ${LOG_LEVEL}
+      JWT_TTL: ${JWT_TTL}
     ports:
       - "${PORT}:${PORT}"
     volumes:
