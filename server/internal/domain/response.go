@@ -9,11 +9,8 @@ import (
 )
 
 type ErrorResponse struct {
-	Code AppErrorCode `json:"code"`
-}
-
-type ErrorWrapper struct {
-	Error ErrorResponse `json:"error"`
+	Code    AppErrorCode `json:"code"`
+	Message string       `json:"message"`
 }
 
 func JSON(ctx *echo.Context, code int, data any) error {
@@ -23,8 +20,10 @@ func JSON(ctx *echo.Context, code int, data any) error {
 func MapAppError(ctx *echo.Context, err error) error {
 	mapAppErr := map[AppErrorType]int{
 		TypeBadRequest:          http.StatusBadRequest,
+		TypeNotFound:            http.StatusNotFound,
 		TypeUnauthorized:        http.StatusUnauthorized,
 		TypeForbidden:           http.StatusForbidden,
+		TypeConflict:            http.StatusConflict,
 		TypeInternalServerError: http.StatusInternalServerError,
 	}
 
@@ -34,7 +33,7 @@ func MapAppError(ctx *echo.Context, err error) error {
 		if ok {
 			ctx.Logger().Debug("known app error", slog.String("error", err.Error()))
 
-			return JSON(ctx, status, ErrorWrapper{Error: ErrorResponse{Code: appError.code}})
+			return JSON(ctx, status, ErrorResponse{Code: appError.code, Message: appError.message})
 		}
 
 		ctx.Logger().Error("unknown app error", slog.String("error", err.Error()))
@@ -42,7 +41,7 @@ func MapAppError(ctx *echo.Context, err error) error {
 		return JSON(
 			ctx,
 			http.StatusInternalServerError,
-			ErrorWrapper{Error: ErrorResponse{Code: CodeInternalServerError}},
+			ErrorResponse{Code: CodeInternalServerError, Message: "internal server error"},
 		)
 	}
 
@@ -51,6 +50,6 @@ func MapAppError(ctx *echo.Context, err error) error {
 	return JSON(
 		ctx,
 		http.StatusInternalServerError,
-		ErrorWrapper{Error: ErrorResponse{Code: CodeInternalServerError}},
+		ErrorResponse{Code: CodeInternalServerError, Message: "internal server error"},
 	)
 }

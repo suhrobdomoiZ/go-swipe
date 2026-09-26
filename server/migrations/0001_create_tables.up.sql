@@ -9,7 +9,7 @@ CREATE TYPE event_source AS ENUM (
 
 CREATE TABLE users (
     id          UUID        PRIMARY KEY DEFAULT uuidv7(),
-    max_user_id BIGINT      NOT NULL UNIQUE,  -- id из initData MAX
+    max_user_id BIGINT      NOT NULL UNIQUE,
     name        VARCHAR(64) CHECK (name IS NULL OR name != ''),
     city        VARCHAR(64) CHECK (city IS NULL OR city != ''),
     birth_date  DATE        CHECK (birth_date IS NULL OR
@@ -23,7 +23,7 @@ CREATE TABLE events (
     title       VARCHAR(128)   NOT NULL CHECK (title != ''),
     description VARCHAR(2048)  NOT NULL CHECK (description != ''),
     category    event_category NOT NULL,
-    tags        JSONB          NOT NULL DEFAULT '[]', -- разметка LLM, напр. ['много людей','старше 20','рок']
+    tags        JSONB          NOT NULL DEFAULT '[]',
     city        VARCHAR(64)    NOT NULL CHECK (city != ''),
     venue       VARCHAR(256),
     starts_at   TIMESTAMPTZ    NOT NULL CHECK (starts_at > now()),
@@ -32,8 +32,8 @@ CREATE TABLE events (
     age_limit   SMALLINT       NOT NULL DEFAULT 0,
     url         VARCHAR(512),
     image_url   VARCHAR(512),
-    source      event_source   NOT NULL,-- 'synthetic' = тестовые данные (README)
-    created_by  UUID REFERENCES users(id) ON DELETE SET NULL,-- заполнено при source='user'
+    source      event_source   NOT NULL,
+    created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
     fetched_at  TIMESTAMPTZ    NOT NULL DEFAULT now()
 );
 
@@ -45,7 +45,7 @@ CREATE INDEX idx_events_created_by  ON events (created_by);
 
 CREATE TABLE user_interests (
     user_id UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tag     VARCHAR(128) NOT NULL, -- от LLM или категория
+    tag     VARCHAR(128) NOT NULL,
     weight  REAL         NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, tag)
 );

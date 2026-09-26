@@ -1,6 +1,9 @@
 package app
 
 import (
+	"context"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	echojwt "github.com/labstack/echo-jwt/v5"
@@ -14,7 +17,11 @@ import (
 	"github.com/suhrobdomoiZ/go-swipe/server/pkg/logger"
 )
 
-func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error) {
+const reminderInterval = time.Minute
+
+const maxUploadBodySize = 6 << 20
+
+func InitServer(ctx context.Context, config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error) {
 	server := echo.New()
 	server.Logger = logger.InitLogger(config.Server.LogLevel())
 
@@ -24,10 +31,13 @@ func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error
 	}
 
 	repositories := InitRepositories(pool)
-	services := InitServices(config, repositories)
+	services := InitServices(config, repositories, maxClient)
 	handlers := InitHandlers(config, services, maxClient)
 
 	AddHandlers(config, server, handlers)
+
+	go services.reminder.Run(ctx, reminderInterval)
+
 	return server, nil
 }
 
@@ -41,8 +51,27 @@ func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers
 	server.GET("/test-bot", handlers.maxBot.SendMessage)
 	server.POST("/api/auth/max", handlers.auth.Login)
 
+	server.Static("/uploads", uploadsDir)
+
 	api := server.Group("/api")
 	api.Use(echojwt.WithConfig(jwtConfig))
+
+	api.POST("/auth/onboarding", handlers.auth.Onboarding)
+
+	api.GET("/events", handlers.events.Feed)
+	api.POST("/events", handlers.events.Create)
+	api.GET("/events/mine", handlers.events.Mine)
+	api.GET("/events/:eventId", handlers.events.GetByID)
+	api.POST("/events/:eventId/swipe", handlers.swipes.Create)
+
+	api.GET("/favorites", handlers.favorites.List)
+	api.PATCH("/favorites/:eventId", handlers.favorites.Confirm)
+	api.DELETE("/favorites/:eventId", handlers.favorites.Remove)
+
+	api.GET("/profile", handlers.profile.Get)
+	api.PATCH("/profile", handlers.profile.Update)
+
+	api.POST("/uploads", handlers.upload.Create, echomw.BodyLimit(maxUploadBodySize))
 }
 
 func InitJWTConfig(secretKey []byte) echojwt.Config {

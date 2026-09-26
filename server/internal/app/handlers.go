@@ -7,9 +7,14 @@ import (
 )
 
 type Handlers struct {
-	health *handlers.Health
-	maxBot *handlers.MaxBot
-	auth   *handlers.Auth
+	health    *handlers.Health
+	maxBot    *handlers.MaxBot
+	auth      *handlers.Auth
+	events    *handlers.Events
+	swipes    *handlers.Swipes
+	favorites *handlers.Favorites
+	profile   *handlers.Profile
+	upload    *handlers.Upload
 }
 
 func InitHandlers(config *config.AppConfig, services *Services, maxClient *maxclient.Client) *Handlers {
@@ -17,5 +22,10 @@ func InitHandlers(config *config.AppConfig, services *Services, maxClient *maxcl
 		handlers.NewHealth(),
 		handlers.NewMaxBot(maxClient),
 		handlers.NewAuth(services.auth, config.Max),
+		handlers.NewEvents(services.events),
+		handlers.NewSwipes(services.swipes),
+		handlers.NewFavorites(services.favorites),
+		handlers.NewProfile(services.profile),
+		handlers.NewUpload(services.upload),
 	}
 }

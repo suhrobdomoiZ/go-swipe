@@ -28,7 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	server, err := app.InitServer(config, pool)
+	server, err := app.InitServer(ctx, config, pool)
 	if err != nil {
 		panic(err)
 	}

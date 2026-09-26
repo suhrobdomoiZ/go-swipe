@@ -15,6 +15,7 @@ const (
 	TypeNotFound
 	TypeUnauthorized
 	TypeForbidden
+	TypeConflict
 	TypeInternalServerError
 )
 
@@ -23,6 +24,7 @@ const (
 	CodeNotFound            AppErrorCode = "NOT_FOUND"
 	CodeUnauthorized        AppErrorCode = "UNAUTHORIZED"
 	CodeForbidden           AppErrorCode = "FORBIDDEN"
+	CodeConflict            AppErrorCode = "CONFLICT"
 	CodeInternalServerError AppErrorCode = "INTERNAL_SERVER_ERROR"
 )
 
@@ -61,6 +63,10 @@ func NewUnauthorized(code AppErrorCode, message string, errs ...error) AppError 
 
 func NewForbidden(code AppErrorCode, message string, errs ...error) AppError {
 	return NewAppError(TypeForbidden, code, message, errs...)
+}
+
+func NewConflict(code AppErrorCode, message string, errs ...error) AppError {
+	return NewAppError(TypeConflict, code, message, errs...)
 }
 
 func NewInternalServerError(code AppErrorCode, message string, errs ...error) AppError {
