@@ -1,16 +1,16 @@
 package config
 
 type MaxConfig struct {
-	BotToken string
+	botToken string
 }
 
 func NewMaxConfig() *MaxConfig {
 	token := KeyMaxBotToken.GetValue()
 	return &MaxConfig{
-		BotToken: token,
+		botToken: token,
 	}
 }
 
 func (c *MaxConfig) Token() string {
-	return c.BotToken
+	return c.botToken
 }

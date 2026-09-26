@@ -20,6 +20,11 @@ ARG MIGRATE_VERSION=v4.19.1
 WORKDIR /service/
 
 RUN apk --no-cache add ca-certificates tzdata curl
+RUN curl -o /usr/local/share/ca-certificates/russian_trusted_root_ca.crt \
+    https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt && \
+    curl -o /usr/local/share/ca-certificates/russian_trusted_sub_ca.crt \
+    https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt && \
+    update-ca-certificates
 RUN curl -L https://github.com/golang-migrate/migrate/releases/download/$MIGRATE_VERSION/migrate.linux-amd64.tar.gz | tar xvz
 
 COPY ./migrations/ ./migrations/

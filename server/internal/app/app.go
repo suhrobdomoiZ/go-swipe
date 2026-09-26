@@ -8,6 +8,7 @@ import (
 	echomw "github.com/labstack/echo/v5/middleware"
 	"github.com/suhrobdomoiZ/go-swipe/server/config"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
+	"github.com/suhrobdomoiZ/go-swipe/server/internal/maxclient"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/middleware"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/model"
 	"github.com/suhrobdomoiZ/go-swipe/server/pkg/logger"
@@ -17,9 +18,14 @@ func InitServer(config *config.AppConfig, pool *pgxpool.Pool) (*echo.Echo, error
 	server := echo.New()
 	server.Logger = logger.InitLogger(config.Server.LogLevel())
 
+	maxClient, err := maxclient.New(config.Max.Token())
+	if err != nil {
+		return nil, err
+	}
+
 	repositories := InitRepositories(pool)
 	services := InitServices(config, repositories)
-	handlers := InitHandlers(config, services)
+	handlers := InitHandlers(config, services, maxClient)
 
 	AddHandlers(config, server, handlers)
 	return server, nil
@@ -32,6 +38,7 @@ func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers
 	server.Use(echomw.RequestLogger())
 
 	server.GET("/health", handlers.health.Health)
+	server.GET("/test-bot", handlers.maxBot.SendMessage)
 }
 
 func InitJWTConfig(secretKey []byte) echojwt.Config {
