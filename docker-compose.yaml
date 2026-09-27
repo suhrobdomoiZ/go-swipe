@@ -38,12 +38,30 @@ services:
       PORT: ${PORT}
       LOG_LEVEL: ${LOG_LEVEL}
       JWT_TTL: ${JWT_TTL}
-    ports:
-      - "${PORT}:${PORT}"
+    expose:
+      - "${PORT}"
     volumes:
       - uploads-data:/service/uploads
+    restart: always
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - server
+    environment:
+      DOMAIN: ${DOMAIN}
+      PORT: ${PORT}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
     restart: always
 
 volumes:
   db-data:
   uploads-data:
+  caddy-data:
+  caddy-config:
