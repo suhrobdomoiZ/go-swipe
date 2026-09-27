@@ -1,0 +1,133 @@
+.list {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 var(--screen-x);
+}
+
+.emptyIcon { color: var(--muted); }
+
+.emptyAction {
+  composes: btn ctaBase from '../styles/shared.module.css';
+  margin-top: 4px;
+  height: 52px;
+  padding: 0 28px;
+  font-size: 15px;
+}
+
+.item {
+  composes: glass from '../styles/shared.module.css';
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+  border-radius: var(--r-panel);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.30);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.cover {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--r-thumb);
+}
+
+.col {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itemTitle {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.itemWhen {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* --- статусы --- */
+.status {
+  align-self: flex-start;
+  padding: 5px 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.statusPending {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.45);
+  color: var(--warn);
+}
+
+.statusLive {
+  background: rgba(217, 70, 239, 0.18);
+  border-color: rgba(217, 70, 239, 0.45);
+  color: var(--accent-soft);
+}
+
+.statusDone {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+}
+
+/* --- действия --- */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit {
+  flex-grow: 1;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.delete {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  color: var(--danger-soft);
+}
+
+.create {
+  composes: btn ctaBase from '../styles/shared.module.css';
+  height: 56px;
+  flex-shrink: 0;
+  margin: 16px var(--screen-x) 24px;
+  font-size: 15px;
+}

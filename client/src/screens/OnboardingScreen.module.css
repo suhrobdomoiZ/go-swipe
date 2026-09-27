@@ -1,0 +1,66 @@
+.content { padding: 26px var(--screen-x) 22px; }
+
+.user {
+  composes: glass from '../styles/shared.module.css';
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  align-self: flex-start;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--r-pill);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--grad-short);
+  border-radius: var(--r-pill);
+  font-family: Unbounded, sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.userCol {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.userSource {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.title {
+  margin: 28px 0 8px;
+  font-size: 28px;
+  line-height: 1.18;
+  font-weight: 700;
+}
+
+.lead {
+  margin-bottom: 24px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.chipsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.submit {
+  composes: btn btnCta from '../styles/shared.module.css';
+  margin-top: auto;
+}
