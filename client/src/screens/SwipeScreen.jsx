@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import EventCover from '../components/EventCover';
 import Loader from '../components/Loader';
 import Screen from '../components/Screen';
-import { IconCalendar, IconClose, IconFilter, IconHeartFilled, IconPin, IconSadFace, IconSearch } from '../components/icons';
+import { IconCalendar, IconClose, IconHeartFilled, IconPin, IconSadFace, IconSearch } from '../components/icons';
 import shared from '../styles/shared.module.css';
 import s from './SwipeScreen.module.css';
 import { ApiError, getEvents, swipeEvent } from '../api';
@@ -11,8 +11,10 @@ import { ApiError, getEvents, swipeEvent } from '../api';
 const PAGE_SIZE = 20;
 // Следующую страницу просим, когда в колоде остаётся столько карточек.
 const PREFETCH_AT = 3;
+const SEARCH_DEBOUNCE_MS = 300;
 
-export default function SwipeScreen() {
+/** Колода по одному поисковому запросу q (пустой — вся лента). */
+function Deck({ q }) {
   const [deck, setDeck] = useState([]);
   const [i, setI] = useState(0);
   const [total, setTotal] = useState(0);
@@ -35,7 +37,7 @@ export default function SwipeScreen() {
     // событие придёт повторно и отсеется по seen: лучше дубль, чем пропуск.
     const offset = seen.current.size - confirmed.current - pending.current;
     try {
-      const page = await getEvents({ limit: PAGE_SIZE, offset });
+      const page = await getEvents({ q, limit: PAGE_SIZE, offset });
       const fresh = page.items.filter((ev) => !seen.current.has(ev.id));
       fresh.forEach((ev) => seen.current.add(ev.id));
       setDeck((d) => [...d, ...fresh]);
@@ -48,7 +50,7 @@ export default function SwipeScreen() {
     } finally {
       inFlight.current = false;
     }
-  }, []);
+  }, [q]);
 
   useEffect(() => {
     if (!hasMore || deck.length - i > PREFETCH_AT || failedAt === i) return;
@@ -72,13 +74,112 @@ export default function SwipeScreen() {
       });
   };
 
+  if (ev) {
+    return (
+      <>
+        <div className={s.deck}>
+          <div className={s.stack}>
+            <div className={s.behind2} />
+            <div className={s.behind1} />
+
+            <Link to={`/event/${ev.id}`} className={s.card}>
+              <div className={s.cover}>
+                <EventCover cover={ev.cover} image={ev.image} />
+                <span className={s.rubric}>{ev.rubric}</span>
+              </div>
+
+              <div className={s.body}>
+                <h2 className={s.title}>{ev.title}</h2>
+
+                <div className={s.meta}>
+                  <IconCalendar size={17} />
+                  <span className={s.metaText}>{ev.when}</span>
+                </div>
+
+                <div className={s.meta}>
+                  <IconPin size={17} />
+                  <span className={s.metaText}>{ev.place}</span>
+                </div>
+
+                <div className={s.badges}>
+                  <span className={shared.badge}>{ev.price}</span>
+                  <span className={shared.badge}>{ev.age}</span>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <span className={s.counter}>{i + 1} из {Math.max(total, deck.length)}</span>
+        </div>
+
+        <div className={s.actions}>
+          <button type="button" aria-label="Пропустить" onClick={() => swipe('skip')} className={s.skip}>
+            <IconClose size={24} className={s.skipIcon} />
+          </button>
+          <button type="button" aria-label="В избранное" onClick={() => swipe('like')} className={s.like}>
+            <IconHeartFilled size={31} />
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (failedAt !== null) {
+    return (
+      <div role="alert" className={s.empty}>
+        <IconSadFace size={84} className={s.emptyIcon} />
+        <h2 className={s.emptyTitle}>Не удалось загрузить ленту</h2>
+        <p className={s.emptyText}>Проверь интернет и попробуй ещё раз.</p>
+        <button type="button" onClick={() => setFailedAt(null)} className={s.emptyBtn}>
+          Обновить
+        </button>
+      </div>
+    );
+  }
+
+  if (hasMore) return <Loader label={q ? 'Ищем…' : 'Подбираем мероприятия…'} />;
+
+  return (
+    <div className={s.empty}>
+      <IconSadFace size={84} className={s.emptyIcon} />
+      {q ? (
+        <>
+          <h2 className={s.emptyTitle}>Ничего не нашли</h2>
+          <p className={s.emptyText}>По запросу «{q}» мероприятий нет. Попробуй другое слово.</p>
+        </>
+      ) : (
+        <>
+          <h2 className={s.emptyTitle}>В твоём городе пока пусто</h2>
+          <p className={s.emptyText}>
+            Мы показали всё, что нашли по твоим фильтрам. Расширь запрос или загляни завтра.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function SwipeScreen() {
+  const [query, setQuery] = useState('');
+  const [q, setQ] = useState('');
+
+  // Поиск по названию: q уходит в GET /events через SEARCH_DEBOUNCE_MS после последнего ввода.
+  useEffect(() => {
+    const t = setTimeout(() => setQ(query.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // «Найти» на клавиатуре — искать сразу и спрятать клавиатуру.
+  const onKeyDown = (e) => {
+    if (e.key !== 'Enter') return;
+    setQ(query.trim());
+    e.currentTarget.blur();
+  };
+
   return (
     <Screen preset="swipe" nav>
       <header className={s.header}>
         <span className={s.brand}>Next2Me</span>
-        <button type="button" aria-label="Фильтры" className={s.iconBtn}>
-          <IconFilter size={20} />
-        </button>
       </header>
 
       <div className={s.searchWrap}>
@@ -88,78 +189,18 @@ export default function SwipeScreen() {
           <input
             id="q"
             type="search"
+            enterKeyHint="search"
             placeholder="Концерты, маркеты, лекции"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
             className={s.searchInput}
           />
         </div>
       </div>
 
-      {ev ? (
-        <>
-          <div className={s.deck}>
-            <div className={s.stack}>
-              <div className={s.behind2} />
-              <div className={s.behind1} />
-
-              <Link to={`/event/${ev.id}`} className={s.card}>
-                <div className={s.cover}>
-                  <EventCover cover={ev.cover} image={ev.image} />
-                  <span className={s.rubric}>{ev.rubric}</span>
-                </div>
-
-                <div className={s.body}>
-                  <h2 className={s.title}>{ev.title}</h2>
-
-                  <div className={s.meta}>
-                    <IconCalendar size={17} />
-                    <span className={s.metaText}>{ev.when}</span>
-                  </div>
-
-                  <div className={s.meta}>
-                    <IconPin size={17} />
-                    <span className={s.metaText}>{ev.place}</span>
-                  </div>
-
-                  <div className={s.badges}>
-                    <span className={shared.badge}>{ev.price}</span>
-                    <span className={shared.badge}>{ev.age}</span>
-                  </div>
-                </div>
-              </Link>
-            </div>
-
-            <span className={s.counter}>{i + 1} из {Math.max(total, deck.length)}</span>
-          </div>
-
-          <div className={s.actions}>
-            <button type="button" aria-label="Пропустить" onClick={() => swipe('skip')} className={s.skip}>
-              <IconClose size={24} className={s.skipIcon} />
-            </button>
-            <button type="button" aria-label="В избранное" onClick={() => swipe('like')} className={s.like}>
-              <IconHeartFilled size={31} />
-            </button>
-          </div>
-        </>
-      ) : failedAt !== null ? (
-        <div role="alert" className={s.empty}>
-          <IconSadFace size={84} className={s.emptyIcon} />
-          <h2 className={s.emptyTitle}>Не удалось загрузить ленту</h2>
-          <p className={s.emptyText}>Проверь интернет и попробуй ещё раз.</p>
-          <button type="button" onClick={() => setFailedAt(null)} className={s.emptyBtn}>
-            Обновить
-          </button>
-        </div>
-      ) : hasMore ? (
-        <Loader label="Подбираем мероприятия…" />
-      ) : (
-        <div className={s.empty}>
-          <IconSadFace size={84} className={s.emptyIcon} />
-          <h2 className={s.emptyTitle}>В твоём городе пока пусто</h2>
-          <p className={s.emptyText}>
-            Мы показали всё, что нашли по твоим фильтрам. Расширь запрос или загляни завтра.
-          </p>
-        </div>
-      )}
+      {/* Новый запрос — новая колода: key сбрасывает карточки, seen и счётчики свайпов. */}
+      <Deck key={q} q={q} />
     </Screen>
   );
 }
