@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type ServerConfig struct {
-	port      int
-	logLevel  slog.Level
-	secretKey []byte
-	jwtTTL    time.Duration
+	port        int
+	logLevel    slog.Level
+	secretKey   []byte
+	jwtTTL      time.Duration
+	corsOrigins []string
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -32,10 +34,11 @@ func NewServerConfig() (*ServerConfig, error) {
 		return nil, err
 	}
 	return &ServerConfig{
-		port:      port,
-		logLevel:  logLevel,
-		secretKey: secretKey,
-		jwtTTL:    jwtTTL,
+		port:        port,
+		logLevel:    logLevel,
+		secretKey:   secretKey,
+		jwtTTL:      jwtTTL,
+		corsOrigins: splitCSV(KeyCORSOrigins.GetValue()),
 	}, nil
 }
 
@@ -57,4 +60,16 @@ func (c *ServerConfig) SecretKey() []byte {
 
 func (c *ServerConfig) JWTTTL() time.Duration {
 	return c.jwtTTL
+}
+
+func (s *ServerConfig) CORSOrigins() []string { return s.corsOrigins }
+
+func splitCSV(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }

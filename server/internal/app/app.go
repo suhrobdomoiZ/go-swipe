@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -46,6 +47,15 @@ func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers
 
 	server.Use(echomw.Recover())
 	server.Use(echomw.RequestLogger())
+	server.Use(echomw.CORSWithConfig(echomw.CORSConfig{
+		AllowOrigins: config.Server.CORSOrigins(), // []string
+		AllowMethods: []string{
+			http.MethodGet, http.MethodPost, http.MethodPatch,
+			http.MethodDelete, http.MethodOptions,
+		},
+		AllowHeaders: []string{"Authorization", "Content-Type"},
+		MaxAge:       86400, // браузер кэширует preflight на сутки
+	}))
 
 	server.GET("/health", handlers.health.Health)
 	server.GET("/test-bot", handlers.maxBot.SendMessage)
