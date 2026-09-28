@@ -1,0 +1,22 @@
+/* Поле файла скрыто, фокус с клавиатуры показываем на зоне выбора. */
+.input:focus-visible + label {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 3px;
+}
+
+/* С загруженной обложкой зона показывает превью, подпись — поверх него. */
+.filled {
+  position: relative;
+  overflow: hidden;
+  border-style: solid;
+}
+
+.preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.over { position: relative; }

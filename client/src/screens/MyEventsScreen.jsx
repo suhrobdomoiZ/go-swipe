@@ -1,29 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import EventCover from '../components/EventCover';
+import ErrorState from '../components/ErrorState';
+import Loader from '../components/Loader';
 import Screen from '../components/Screen';
-import { IconCalendarBig, IconEdit, IconPlus, IconTrash } from '../components/icons';
+import { IconCalendarBig, IconPlus } from '../components/icons';
 import { BackHeader, EmptyState } from '../components/ui';
 import s from './MyEventsScreen.module.css';
-import { MY_EVENTS } from '../mocks/events';
+import { ApiError, getMyEvents } from '../api';
 
-const STATUS_CLASS = {
-  'На модерации': s.statusPending,
-  'Опубликовано': s.statusLive,
-  'Завершено': s.statusDone,
-};
+// Максимум ручки; больше своих мероприятий у пользователя пока не бывает.
+const LIMIT = 50;
 
+/**
+ * Мероприятия, созданные пользователем. Статус только «Завершено» (из starts_at):
+ * модерации нет. Редактирования и удаления нет — в API нет таких ручек.
+ */
 export default function MyEventsScreen() {
-  const [items, setItems] = useState(MY_EVENTS);
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
-  const drop = (id) => setItems(items.filter((x) => x.id !== id));
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getMyEvents({ limit: LIMIT }, { signal: ctrl.signal })
+      .then((res) => setItems(res.items))
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        // GET /events/mine на бэке может ещё не быть — 404 показываем как пустой список.
+        if (err instanceof ApiError && err.status === 404) setItems([]);
+        else setError(err);
+      });
+    return () => ctrl.abort();
+  }, [attempt]);
+
+  const retry = () => {
+    setError(null);
+    setAttempt((n) => n + 1);
+  };
 
   return (
     <Screen preset="swipe">
       <BackHeader to="/profile" title="Мои мероприятия" />
 
       <div className={s.list}>
-        {items.length === 0 ? (
+        {error ? (
+          <ErrorState title="Не удалось загрузить мероприятия" text="Проверь интернет и попробуй ещё раз." onAction={retry} />
+        ) : !items ? (
+          <Loader />
+        ) : items.length === 0 ? (
           <EmptyState
             icon={<IconCalendarBig size={76} className={s.emptyIcon} />}
             title="Ты ещё ничего не создал"
@@ -35,30 +60,13 @@ export default function MyEventsScreen() {
             <div key={it.id} className={s.item}>
               <div className={s.row}>
                 <div className={s.cover}>
-                  <EventCover cover={it.cover} radius={18} blur={10} />
+                  <EventCover cover={it.cover} image={it.image} radius={18} blur={10} />
                 </div>
                 <div className={s.col}>
                   <span className={s.itemTitle}>{it.title}</span>
                   <span className={s.itemWhen}>{it.when}</span>
-                  <span className={`${s.status} ${STATUS_CLASS[it.status]}`}>
-                    {it.status}
-                  </span>
+                  {it.status && <span className={`${s.status} ${s.statusDone}`}>{it.status}</span>}
                 </div>
-              </div>
-
-              <div className={s.actions}>
-                <Link to={`/create?edit=${it.id}`} className={s.edit}>
-                  <IconEdit size={15} aria-hidden="true" />
-                  Редактировать
-                </Link>
-                <button
-                  type="button"
-                  aria-label={`Удалить «${it.title}»`}
-                  onClick={() => drop(it.id)}
-                  className={s.delete}
-                >
-                  <IconTrash size={17} />
-                </button>
               </div>
             </div>
           ))

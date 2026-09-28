@@ -1,0 +1,8 @@
+/* Экраны входа: загрузка и ошибки по центру экрана. */
+.center {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 24px var(--screen-x);
+}

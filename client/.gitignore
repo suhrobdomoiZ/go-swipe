@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*
+# Несекретные настройки сборки коммитим; локальные .env*.local остаются в игноре.
+!.env.example
+!.env.development
+!.env.production

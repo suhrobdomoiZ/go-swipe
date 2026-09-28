@@ -1,13 +1,27 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import s from './EventCover.module.css';
 
 /**
- * Переливающаяся обложка события.
- * Когда бэк отдаст картинки — этот компонент меняется на <img>,
- * а cover-палитра остаётся запасным вариантом, если картинки нет.
+ * Обложка события: картинка, если бэк её отдал,
+ * иначе переливающийся градиент из cover-палитры категории.
+ * Если картинка не загрузилась — тоже градиент.
  */
-export default function EventCover({ cover, radius = 22, blur = 30 }) {
+export default function EventCover({ cover, image, radius = 22, blur = 30 }) {
   const id = useId();
+  const [broken, setBroken] = useState(null);
+
+  if (image && image !== broken) {
+    return (
+      <img
+        src={image}
+        alt=""
+        className={s.cover}
+        style={{ borderRadius: radius, objectFit: 'cover' }}
+        onError={() => setBroken(image)}
+      />
+    );
+  }
+
   const { base, a, b, c } = cover;
 
   return (

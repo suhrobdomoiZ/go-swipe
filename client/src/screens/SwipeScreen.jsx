@@ -1,21 +1,75 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import EventCover from '../components/EventCover';
+import Loader from '../components/Loader';
 import Screen from '../components/Screen';
 import { IconCalendar, IconClose, IconFilter, IconHeartFilled, IconPin, IconSadFace, IconSearch } from '../components/icons';
 import shared from '../styles/shared.module.css';
 import s from './SwipeScreen.module.css';
-import { EVENTS } from '../mocks/events';
+import { ApiError, getEvents, swipeEvent } from '../api';
+
+const PAGE_SIZE = 20;
+// Следующую страницу просим, когда в колоде остаётся столько карточек.
+const PREFETCH_AT = 3;
 
 export default function SwipeScreen() {
+  const [deck, setDeck] = useState([]);
   const [i, setI] = useState(0);
-  const [liked, setLiked] = useState([]);
-  const ev = EVENTS[i];
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  // Номер карточки, на которой упала подгрузка: повторяем после следующего свайпа или по кнопке.
+  const [failedAt, setFailedAt] = useState(null);
 
-  const skip = () => setI(i + 1);
-  const like = () => {
-    setLiked([...liked, EVENTS[i].id]);
+  const inFlight = useRef(false);   // «запрос в пути»: одна страница — один запрос
+  const seen = useRef(new Set());   // id всех карточек, попавших в колоду, — против дублей
+  const confirmed = useRef(0);      // свайпы, которые сервер уже учёл (200 или 409)
+  const pending = useRef(0);        // свайпы, отправленные, но ещё без ответа
+
+  const loadMore = useCallback(async (at) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    // Бэк убирает свайпнутые события из выдачи, поэтому offset — не длина колоды,
+    // а число загруженных карточек, которые сервер ещё считает непросмотренными.
+    // Свайпы в пути вычитаем тоже: сервер может учесть их раньше, чем этот GET,
+    // и тогда страница съедет вперёд с пропуском событий. Если не успеет —
+    // событие придёт повторно и отсеется по seen: лучше дубль, чем пропуск.
+    const offset = seen.current.size - confirmed.current - pending.current;
+    try {
+      const page = await getEvents({ limit: PAGE_SIZE, offset });
+      const fresh = page.items.filter((ev) => !seen.current.has(ev.id));
+      fresh.forEach((ev) => seen.current.add(ev.id));
+      setDeck((d) => [...d, ...fresh]);
+      setTotal(confirmed.current + page.total);
+      // Страница без новых карточек — дальше просить нечего, иначе зациклимся.
+      setHasMore(fresh.length > 0 && offset + page.items.length < page.total);
+      setFailedAt(null);
+    } catch {
+      setFailedAt(at);
+    } finally {
+      inFlight.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasMore || deck.length - i > PREFETCH_AT || failedAt === i) return;
+    loadMore(i);
+  }, [deck.length, i, hasMore, failedAt, loadMore]);
+
+  const ev = deck[i];
+
+  // Оптимистично: следующая карточка сразу, свайп уходит в фоне.
+  const swipe = (action) => {
+    if (!ev) return;
     setI(i + 1);
+    pending.current += 1;
+    swipeEvent(ev.id, action)
+      // 409 — сервер этот свайп уже учёл. Остальные ошибки пользователю не показываем:
+      // 401 перехватывает AuthGate, а неучтённое событие просто останется в выдаче.
+      .then(() => true, (err) => err instanceof ApiError && err.status === 409)
+      .then((counted) => {
+        pending.current -= 1;
+        if (counted) confirmed.current += 1;
+      });
   };
 
   return (
@@ -49,7 +103,7 @@ export default function SwipeScreen() {
 
               <Link to={`/event/${ev.id}`} className={s.card}>
                 <div className={s.cover}>
-                  <EventCover cover={ev.cover} />
+                  <EventCover cover={ev.cover} image={ev.image} />
                   <span className={s.rubric}>{ev.rubric}</span>
                 </div>
 
@@ -74,18 +128,29 @@ export default function SwipeScreen() {
               </Link>
             </div>
 
-            <span className={s.counter}>{i + 1} из {EVENTS.length}</span>
+            <span className={s.counter}>{i + 1} из {Math.max(total, deck.length)}</span>
           </div>
 
           <div className={s.actions}>
-            <button type="button" aria-label="Пропустить" onClick={skip} className={s.skip}>
+            <button type="button" aria-label="Пропустить" onClick={() => swipe('skip')} className={s.skip}>
               <IconClose size={24} className={s.skipIcon} />
             </button>
-            <button type="button" aria-label="В избранное" onClick={like} className={s.like}>
+            <button type="button" aria-label="В избранное" onClick={() => swipe('like')} className={s.like}>
               <IconHeartFilled size={31} />
             </button>
           </div>
         </>
+      ) : failedAt !== null ? (
+        <div role="alert" className={s.empty}>
+          <IconSadFace size={84} className={s.emptyIcon} />
+          <h2 className={s.emptyTitle}>Не удалось загрузить ленту</h2>
+          <p className={s.emptyText}>Проверь интернет и попробуй ещё раз.</p>
+          <button type="button" onClick={() => setFailedAt(null)} className={s.emptyBtn}>
+            Обновить
+          </button>
+        </div>
+      ) : hasMore ? (
+        <Loader label="Подбираем мероприятия…" />
       ) : (
         <div className={s.empty}>
           <IconSadFace size={84} className={s.emptyIcon} />
@@ -93,9 +158,6 @@ export default function SwipeScreen() {
           <p className={s.emptyText}>
             Мы показали всё, что нашли по твоим фильтрам. Расширь запрос или загляни завтра.
           </p>
-          <button type="button" onClick={() => setI(0)} className={s.emptyBtn}>
-            Изменить фильтры
-          </button>
         </div>
       )}
     </Screen>
