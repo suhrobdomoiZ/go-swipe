@@ -9,6 +9,22 @@ export function getInitData() {
   return null;
 }
 
+let readySent = false;
+
+/**
+ * Сигнал MAX «приложение отрисовалось — убирай заставку». Шлём один раз.
+ * Вне MAX (или если скрипт моста не загрузился) window.WebApp может не быть — тогда ничего.
+ */
+export function notifyReady() {
+  if (readySent) return;
+  readySent = true;
+  try {
+    window.WebApp?.ready?.();
+  } catch {
+    // без моста сигнал просто некому отправить
+  }
+}
+
 /**
  * Внешняя ссылка внутри MAX открывается через мост, а не переходом в вебвью.
  * Возвращает true, если ссылку открыл мост; иначе вызывающий оставляет обычный переход.

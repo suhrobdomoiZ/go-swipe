@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, authMax, onUnauthorized } from '../api';
-import { getInitData } from '../lib/max';
+import { getInitData, notifyReady } from '../lib/max';
 import { SessionContext } from '../lib/session';
 import ErrorState from './ErrorState';
 import Loader from './Loader';
@@ -46,6 +46,11 @@ export default function AuthGate({ children }) {
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0);
+
+  // Первый кадр AuthGate (спиннер входа или сообщение) уже осмысленный — MAX может убирать заставку.
+  useEffect(() => {
+    notifyReady();
+  }, []);
 
   const onAuthed = useEffectEvent((res) => {
     setSession(res);
