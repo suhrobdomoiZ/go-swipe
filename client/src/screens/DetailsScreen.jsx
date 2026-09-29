@@ -1,28 +1,60 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import EventCover from '../components/EventCover';
+import Loader from '../components/Loader';
 import Screen from '../components/Screen';
 import { IconBack, IconCalendar, IconPin } from '../components/icons';
 import shared from '../styles/shared.module.css';
 import s from './DetailsScreen.module.css';
-import { EVENTS } from '../mocks/events';
+import { ApiError, getEvent } from '../api';
+import { openExternalLink } from '../lib/max';
 
 export default function DetailsScreen() {
   const { id } = useParams();
-  const ev = EVENTS.find((e) => String(e.id) === id);
+  // Результат привязан к id: при смене id старая карточка не показывается, пока грузится новая.
+  const [result, setResult] = useState(null);
 
-  if (!ev) {
+  useEffect(() => {
+    const ctrl = new AbortController();
+    getEvent(id, { signal: ctrl.signal })
+      .then((ev) => setResult({ id, ev }))
+      .catch((error) => {
+        if (error.name !== 'AbortError') setResult({ id, error });
+      });
+    return () => ctrl.abort();
+  }, [id]);
+
+  if (result?.id !== id) {
+    return (
+      <Screen preset="form">
+        <Loader />
+      </Screen>
+    );
+  }
+
+  if (result.error) {
+    const notFound = result.error instanceof ApiError && result.error.status === 404;
     return (
       <Screen className={s.notFound}>
-        <p className={s.notFoundText}>Мероприятие не найдено.</p>
+        <p className={s.notFoundText}>
+          {notFound ? 'Мероприятие не найдено.' : 'Не удалось загрузить мероприятие. Проверь интернет и попробуй ещё раз.'}
+        </p>
         <Link to="/">Вернуться к ленте</Link>
       </Screen>
     );
   }
 
+  const { ev } = result;
+
+  // Внутри MAX внешняя ссылка открывается через мост, в браузере — обычной новой вкладкой.
+  const openTicket = (e) => {
+    if (openExternalLink(ev.ticketUrl)) e.preventDefault();
+  };
+
   return (
     <Screen preset="form">
       <div className={s.hero}>
-        <EventCover cover={ev.cover} radius={0} blur={36} />
+        <EventCover cover={ev.cover} image={ev.image} radius={0} blur={36} />
         <Link to="/" aria-label="Назад" className={s.back}>
           <IconBack size={21} />
         </Link>
@@ -49,18 +81,18 @@ export default function DetailsScreen() {
           </div>
         </div>
 
-        <p className={s.description}>
-          {ev.description ?? '[ОПИСАНИЕ МЕРОПРИЯТИЯ — приходит с бэкенда]'}
-        </p>
+        {ev.description && <p className={s.description}>{ev.description}</p>}
 
         <div className={s.footer}>
           <div className={s.priceCol}>
             <span className={s.priceLabel}>Билет от</span>
             <span className={s.price}>{ev.price}</span>
           </div>
-          <a href={ev.ticketUrl ?? '#'} className={s.buy}>
-            Купить билет
-          </a>
+          {ev.ticketUrl && (
+            <a href={ev.ticketUrl} target="_blank" rel="noopener noreferrer" onClick={openTicket} className={s.buy}>
+              Купить билет
+            </a>
+          )}
         </div>
       </div>
     </Screen>

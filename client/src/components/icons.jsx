@@ -62,6 +62,14 @@ export function IconClose({ size = 24, ...p }) {
   );
 }
 
+export function IconCheck({ size = 20, ...p }) {
+  return (
+    <Icon size={size} {...line} strokeWidth={2} strokeLinejoin="round" {...p}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </Icon>
+  );
+}
+
 export function IconBack({ size = 20, ...p }) {
   return (
     <Icon size={size} {...line} strokeWidth={2} strokeLinejoin="round" {...p}>

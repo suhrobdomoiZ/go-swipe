@@ -1,0 +1,18 @@
+/* Обёртка только для role="alert": в раскладке её нет, пустое состояние растягивается как обычно. */
+.alert { display: contents; }
+
+.icon { color: var(--muted); }
+
+.hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted-2);
+}
+
+.retry {
+  composes: btn from '../styles/shared.module.css';
+  margin-top: 4px;
+  height: 52px;
+  padding: 0 28px;
+  font-size: 15px;
+}
