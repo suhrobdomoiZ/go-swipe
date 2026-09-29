@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import AuthGate from './components/AuthGate';
 import ErrorBoundary from './components/ErrorBoundary';
 import SwipeScreen from './screens/SwipeScreen';
@@ -22,6 +22,8 @@ export default function App() {
             <Route path="/create" element={<CreateEventScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/my" element={<MyEventsScreen />} />
+            {/* MAX может открыть приложение по любому пути; без этого Routes рисует пустоту, а не экран. */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthGate>
       </BrowserRouter>

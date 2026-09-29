@@ -67,7 +67,7 @@
       (function () {
         var box = document.getElementById('diag');
         function log(t) { box.textContent += t + '\n'; }
-        log('build: diag-1 ' + location.href);
+        log('build: diag-2 path=' + location.pathname + ' search=' + location.search);
         window.addEventListener('error', function (e) {
           var el = e.target;
           if (el && el !== window && (el.src || el.href)) log('LOAD FAIL: ' + (el.src || el.href));
