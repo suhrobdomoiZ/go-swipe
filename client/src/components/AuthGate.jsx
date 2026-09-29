@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError, authMax, onUnauthorized } from '../api';
 import { getInitData, notifyReady } from '../lib/max';
 import { SessionContext } from '../lib/session';
+import Centered from './Centered';
 import ErrorState from './ErrorState';
 import Loader from './Loader';
 import Screen from './Screen';
-import s from './AuthGate.module.css';
 
 const SESSION_EXPIRED = 'session_expired';
 
@@ -18,20 +18,16 @@ function describeError(error) {
     return { title: 'Не настроен адрес API', text: 'Задай VITE_API_URL в .env.local и перезапусти сборку.' };
   }
   if (error instanceof ApiError && error.status === 401) {
-    return { title: 'Не получилось войти', text: 'MAX не подтвердил данные входа. Закрой приложение и открой его заново.' };
+    return {
+      title: 'Не получилось войти',
+      text: 'Сервер не принял данные входа. Попробуй ещё раз или открой приложение заново.',
+      action: 'Попробовать ещё раз',
+    };
   }
   if (error instanceof ApiError && error.status === 0) {
     return { title: 'Нет связи с сервером', text: 'Проверь интернет и попробуй ещё раз.', action: 'Попробовать ещё раз' };
   }
   return { title: 'Что-то пошло не так', text: 'Сервер ответил ошибкой. Попробуй ещё раз чуть позже.', action: 'Попробовать ещё раз' };
-}
-
-function Centered({ children }) {
-  return (
-    <Screen preset="swipe" className={s.center}>
-      <div>{children}</div>
-    </Screen>
-  );
 }
 
 /**
