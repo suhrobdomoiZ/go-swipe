@@ -2,6 +2,7 @@ import { Component } from 'react';
 import Centered from './Centered';
 import ErrorState from './ErrorState';
 import { setToken } from '../api/client';
+import { notifyReady } from '../lib/max';
 
 /**
  * Последний рубеж: если отрисовка упала, React снимает всё дерево и остаётся пустой фон.
@@ -16,6 +17,8 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Приложение упало при отрисовке', error, info.componentStack);
+    // Заставка MAX должна уйти и при падении, иначе поверх ошибки останется чёрный экран.
+    notifyReady();
   }
 
   restart = () => {
@@ -30,6 +33,7 @@ export default class ErrorBoundary extends Component {
         <ErrorState
           title="Что-то пошло не так"
           text="Перезапусти приложение — войдём заново."
+          hint={String(this.state.error?.message ?? this.state.error)}
           actionLabel="Перезапустить"
           onAction={this.restart}
         />

@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
-import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 
 // Диагностика: в вебвью MAX нет консоли, поэтому необработанные ошибки (вне рендера React)
 // выводим поверх экрана. Boundary их не ловит, а без этого видно только чёрный экран.
@@ -23,8 +22,6 @@ window.addEventListener('unhandledrejection', (e) => showFatal(e.reason));
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AppErrorBoundary>
-      <App />
-    </AppErrorBoundary>
+    <App />
   </StrictMode>,
 )
