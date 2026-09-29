@@ -29,7 +29,7 @@ type TransactionManager interface {
 }
 
 type IUser interface {
-	GetOrCreateByMaxID(ctx context.Context, maxUserID int64) (domain.User, error)
+	GetOrCreateByMaxID(ctx context.Context, maxUserID int64, name *string) (domain.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
 
 	UpdateOnboarding(ctx context.Context, id uuid.UUID, city string, birthDate *time.Time, info *string) (domain.User, error)

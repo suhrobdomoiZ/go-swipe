@@ -12,6 +12,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      // Загруженные обложки отдаёт бэк по /uploads/...
+      '/uploads': {
+        target: 'https://93-77-180-125.sslip.io',
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
 })

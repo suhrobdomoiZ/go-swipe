@@ -56,9 +56,9 @@ export default function ProfileScreen() {
       ) : (
         <>
           <div className={s.card}>
-            <div className={s.avatar}>{profile.initial}</div>
+            <div className={s.avatar}>{profile.initial || '?'}</div>
             <div className={s.userCol}>
-              <span className={s.userName}>{profile.name}</span>
+              <span className={s.userName}>{profile.name || 'Без имени'}</span>
               {profile.meta && <span className={s.userMeta}>{profile.meta}</span>}
             </div>
           </div>

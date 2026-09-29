@@ -66,12 +66,18 @@ function SwipeCard({ ev, onDrag, onRelease }) {
   const ref = useRef(null);
   const drag = useRef(null);
   const dragged = useRef(false);
+  const likeStamp = useRef(null);
+  const skipStamp = useRef(null);
 
   const place = (dx, animate) => {
     const el = ref.current;
     if (!el) return;
     el.style.transition = animate ? `transform ${SNAP_MS}ms ease-out` : 'none';
     el.style.transform = dx ? cardTransform(dx) : '';
+    // Штамп проступает по мере протяжки и достигает полной яркости на пороге свайпа.
+    const p = Math.min(1, Math.abs(dx) / SWIPE_DISTANCE);
+    if (likeStamp.current) likeStamp.current.style.opacity = dx > 0 ? p : 0;
+    if (skipStamp.current) skipStamp.current.style.opacity = dx < 0 ? p : 0;
     onDrag(dx);
   };
 
@@ -144,9 +150,11 @@ function SwipeCard({ ev, onDrag, onRelease }) {
       onPointerCancel={onPointerCancel}
       onClickCapture={onClickCapture}
       style={dragSurface}
-      className={s.card}
+      className={`${s.card} ${s.cardIn}`}
     >
       <CardContent ev={ev} />
+      <span ref={likeStamp} aria-hidden="true" className={`${s.stamp} ${s.stampLike}`}>Хочу</span>
+      <span ref={skipStamp} aria-hidden="true" className={`${s.stamp} ${s.stampSkip}`}>Пропуск</span>
     </Link>
   );
 }
@@ -225,6 +233,7 @@ function Deck({ q }) {
   const [flying, setFlying] = useState([]);
   const likeBtn = useRef(null);
   const skipBtn = useRef(null);
+  const stackRef = useRef(null);
 
   // Оптимистично: следующая карточка сразу, свайп уходит в фоне,
   // а свайпнутая улетает поверх неё анимацией.
@@ -247,6 +256,8 @@ function Deck({ q }) {
   // Пока карточку тянут, кнопка того же действия подрастает — подсказка, что сейчас случится.
   const hint = (dx) => {
     const p = Math.max(-1, Math.min(1, dx / SWIPE_DISTANCE));
+    // Карточки под верхней подтягиваются вперёд по мере протяжки (--p читает CSS).
+    stackRef.current?.style.setProperty('--p', Math.abs(p));
     if (likeBtn.current) likeBtn.current.style.transform = p > 0 ? `scale(${1 + 0.18 * p})` : '';
     if (skipBtn.current) skipBtn.current.style.transform = p < 0 ? `scale(${1 - 0.18 * p})` : '';
   };
@@ -257,7 +268,7 @@ function Deck({ q }) {
     return (
       <>
         <div className={s.deck}>
-          <div className={s.stack}>
+          <div ref={stackRef} className={s.stack}>
             <div className={s.behind2} />
             <div className={s.behind1} />
 
@@ -338,7 +349,7 @@ export default function SwipeScreen() {
   return (
     <Screen preset="swipe" nav>
       <header className={s.header}>
-        <span className={s.brand}>Next2Me</span>
+        <span className={s.brand}>GoSwipe</span>
       </header>
 
       <div className={s.searchWrap}>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>GoSwipe</title>
     <!-- Шрифты не блокируют отрисовку: если Google Fonts недоступен, приложение остаётся со шрифтом по умолчанию.
          Раньше это был @import в index.css, и он держал применение всех стилей. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -59,30 +59,6 @@
           }
         }, true);
         setTimeout(function () { fail('Приложение долго загружается. Попробуй обновить.'); }, 15000);
-      })();
-    </script>
-    <!-- ВРЕМЕННАЯ диагностика: строка состояния поверх экрана, пока в MAX нет консоли. Удалить после починки. -->
-    <pre id="diag" style="position:fixed;top:0;left:0;right:0;margin:0;padding:6px 8px;z-index:100000;pointer-events:none;background:rgba(0,0,0,.75);color:#7CFC00;font:10px/1.35 monospace;white-space:pre-wrap"></pre>
-    <script>
-      (function () {
-        var box = document.getElementById('diag');
-        function log(t) { box.textContent += t + '\n'; }
-        log('build: diag-2 path=' + location.pathname + ' search=' + location.search);
-        window.addEventListener('error', function (e) {
-          var el = e.target;
-          if (el && el !== window && (el.src || el.href)) log('LOAD FAIL: ' + (el.src || el.href));
-          else log('ERR: ' + e.message);
-        }, true);
-        window.addEventListener('unhandledrejection', function (e) { log('REJ: ' + (e.reason && (e.reason.message || e.reason))); });
-        window.addEventListener('load', function () {
-          log('WebApp: ' + (window.WebApp ? 'yes' : 'NO') + ', initData len: ' + ((window.WebApp && window.WebApp.initData || '').length));
-          log('root children: ' + document.getElementById('root').children.length + ', boot: ' + !!document.getElementById('boot'));
-        });
-        fetch('/api/health').then(function (r) { log('/api/health: ' + r.status); }, function (e) { log('/api/health FAIL: ' + e); });
-        setTimeout(function () {
-          var r = document.getElementById('root');
-          log('t+4s: boot=' + !!document.getElementById('boot') + ' html len=' + r.innerHTML.length + ' text="' + r.innerText.slice(0, 60) + '"');
-        }, 4000);
       })();
     </script>
     <!-- MAX Bridge: window.WebApp с initData. В конце body, чтобы медленный st.max.ru не держал пустой экран;

@@ -25,13 +25,14 @@ func scanUser(row pgx.Row) (domain.User, error) {
 	return u, nil
 }
 
-func (r *User) GetOrCreateByMaxID(ctx context.Context, maxUserID int64) (domain.User, error) {
+// name — имя из MAX; если его нет (nil), уже сохранённое имя не затирается.
+func (r *User) GetOrCreateByMaxID(ctx context.Context, maxUserID int64, name *string) (domain.User, error) {
 	query := `
-		INSERT INTO users (max_user_id) VALUES ($1)
-		ON CONFLICT (max_user_id) DO UPDATE SET max_user_id = EXCLUDED.max_user_id
+		INSERT INTO users (max_user_id, name) VALUES ($1, $2)
+		ON CONFLICT (max_user_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name)
 		RETURNING id, max_user_id, name, city, birth_date, info, created_at
 	`
-	userDomain, err := scanUser(r.GetExecutor(ctx).QueryRow(ctx, query, maxUserID))
+	userDomain, err := scanUser(r.GetExecutor(ctx).QueryRow(ctx, query, maxUserID, name))
 	if err != nil {
 		return domain.User{}, domain.NewInternalServerError(domain.CodeInternalServerError, "user.GetOrCreateByMaxID: error create or update user", err)
 	}

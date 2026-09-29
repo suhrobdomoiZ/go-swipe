@@ -40,7 +40,7 @@ func (s *Auth) Login(ctx context.Context, initData string, maxToken string) (tok
 		return "", domain.User{}, false, domain.NewUnauthorized(domain.CodeUnauthorized, "auth.Login: init data has no user", nil)
 	}
 
-	user, err = s.repository.GetOrCreateByMaxID(ctx, data.User.ID)
+	user, err = s.repository.GetOrCreateByMaxID(ctx, data.User.ID, displayName(data.User.FirstName, data.User.LastName))
 	if err != nil {
 		return "", domain.User{}, false, fmt.Errorf("get or create user: %w", err)
 	}
@@ -116,6 +116,15 @@ func (s *Auth) Onboarding(
 		return domain.User{}, err
 	}
 	return user, nil
+}
+
+// displayName собирает имя из MAX; колонка users.name — VARCHAR(64) и не допускает пустую строку.
+func displayName(firstName, lastName string) *string {
+	name := truncateRunes(strings.TrimSpace(strings.TrimSpace(firstName)+" "+strings.TrimSpace(lastName)), 64)
+	if name == "" {
+		return nil
+	}
+	return &name
 }
 
 func (s *Auth) issueJWT(userID uuid.UUID) (string, error) {

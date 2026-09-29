@@ -98,9 +98,11 @@ export function birthDateToAge(birthDate) {
 
 /* --- API → компоненты --- */
 
-// url и image_url приходят и от пользователей — пропускаем только http(s).
+// url и image_url приходят и от пользователей — пропускаем только http(s)
+// и путь к файлу, загруженному через POST /uploads (бэк отдаёт его относительным: /uploads/<uuid>.png).
 function safeUrl(value) {
-  return /^https?:\/\//i.test(value ?? '') ? value : null;
+  const v = value ?? '';
+  return /^https?:\/\//i.test(v) || /^\/uploads\/[\w.-]+$/.test(v) ? v : null;
 }
 
 /** Event → карточка для ленты, деталей и избранного. */
