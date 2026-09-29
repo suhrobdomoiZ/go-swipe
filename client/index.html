@@ -5,9 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>client</title>
+    <!-- Шрифты не блокируют отрисовку: если Google Fonts недоступен, приложение остаётся со шрифтом по умолчанию.
+         Раньше это был @import в index.css, и он держал применение всех стилей. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
     <style>
       /* Стартовый экран до загрузки бандла: без него вебвью показывает пустой чёрный фон. */
-      body { margin: 0; background: #07050D; }
+      body { margin: 0; background: #07050D; color: #F6F2FB; }
       #boot {
         min-height: 100dvh; box-sizing: border-box; padding: 24px;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
