@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -87,12 +88,17 @@ func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers
 func InitJWTConfig(secretKey []byte) echojwt.Config {
 	return echojwt.Config{
 		ErrorHandler: func(ctx *echo.Context, err error) error {
-			err = domain.MapAppError(
+			// Причина (нет заголовка, плохая подпись, истёк срок) иначе видна только на Debug.
+			ctx.Logger().Warn("jwt rejected",
+				slog.String("path", ctx.Request().URL.Path),
+				slog.Bool("has_authorization", ctx.Request().Header.Get("Authorization") != ""),
+				slog.String("cause", err.Error()),
+			)
+
+			return domain.MapAppError(
 				ctx,
 				domain.NewUnauthorized(domain.CodeUnauthorized, "jwt middleware error", err),
 			)
-
-			return domain.MapAppError(ctx, err)
 		},
 		SigningKey:  secretKey,
 		ContextKey:  middleware.KeyToken,
