@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import EventCover from '../components/EventCover';
 import Loader from '../components/Loader';
@@ -12,6 +12,168 @@ const PAGE_SIZE = 20;
 // Следующую страницу просим, когда в колоде остаётся столько карточек.
 const PREFETCH_AT = 3;
 const SEARCH_DEBOUNCE_MS = 300;
+
+// Жест: протянул дальше SWIPE_DISTANCE — свайп; короткий быстрый бросок тоже считается.
+const SWIPE_DISTANCE = 100;   // px
+const FLICK_DISTANCE = 40;    // px
+const FLICK_SPEED = 0.5;      // px/мс
+const GESTURE_SLOP = 8;       // px — до этого не решаем, горизонтальный жест или вертикальный
+const SNAP_MS = 180;
+const FLY_MS = 260;
+
+const cardTransform = (dx) => `translateX(${dx}px) rotate(${dx / 18}deg)`;
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+function CardContent({ ev }) {
+  return (
+    <>
+      <div className={s.cover}>
+        <EventCover cover={ev.cover} image={ev.image} />
+        <span className={s.rubric}>{ev.rubric}</span>
+      </div>
+
+      <div className={s.body}>
+        <h2 className={s.title}>{ev.title}</h2>
+
+        <div className={s.meta}>
+          <IconCalendar size={17} />
+          <span className={s.metaText}>{ev.when}</span>
+        </div>
+
+        <div className={s.meta}>
+          <IconPin size={17} />
+          <span className={s.metaText}>{ev.place}</span>
+        </div>
+
+        <div className={s.badges}>
+          <span className={shared.badge}>{ev.price}</span>
+          <span className={shared.badge}>{ev.age}</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Карточку тянут пальцем или мышью; тап без движения — как обычная ссылка на детали.
+const dragSurface = { touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' };
+
+/**
+ * Верхняя карточка колоды со свайпом: вправо — лайк, влево — пропуск.
+ * onDrag(dx) — смещение во время жеста (для подсказки на кнопках),
+ * onRelease(action, dx) — жест засчитан.
+ */
+function SwipeCard({ ev, onDrag, onRelease }) {
+  const ref = useRef(null);
+  const drag = useRef(null);
+  const dragged = useRef(false);
+
+  const place = (dx, animate) => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transition = animate ? `transform ${SNAP_MS}ms ease-out` : 'none';
+    el.style.transform = dx ? cardTransform(dx) : '';
+    onDrag(dx);
+  };
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return;
+    drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, dx: 0, horizontal: null };
+    dragged.current = false;
+  };
+
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (d.horizontal === null) {
+      if (Math.abs(dx) < GESTURE_SLOP && Math.abs(dy) < GESTURE_SLOP) return;
+      d.horizontal = Math.abs(dx) > Math.abs(dy);
+      // Вертикальный жест — не наш, отдаём прокрутке.
+      if (!d.horizontal) {
+        drag.current = null;
+        return;
+      }
+      dragged.current = true;
+      try {
+        ref.current.setPointerCapture(e.pointerId);
+      } catch {
+        // указатель уже отпущен — дотянем без захвата
+      }
+    }
+    d.dx = dx;
+    place(dx, false);
+  };
+
+  const onPointerUp = (e) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.id !== e.pointerId || !d.horizontal) return;
+    const speed = Math.abs(d.dx) / Math.max(1, e.timeStamp - d.t0);
+    const swiped = Math.abs(d.dx) >= SWIPE_DISTANCE || (Math.abs(d.dx) >= FLICK_DISTANCE && speed >= FLICK_SPEED);
+    if (swiped) {
+      onDrag(0);
+      onRelease(d.dx > 0 ? 'like' : 'skip', d.dx);
+    } else {
+      place(0, true);
+    }
+  };
+
+  const onPointerCancel = () => {
+    drag.current = null;
+    place(0, true);
+  };
+
+  // После протяжки отпускание не должно открывать детали.
+  const onClickCapture = (e) => {
+    if (!dragged.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragged.current = false;
+  };
+
+  return (
+    <Link
+      ref={ref}
+      to={`/event/${ev.id}`}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onClickCapture={onClickCapture}
+      style={dragSurface}
+      className={s.card}
+    >
+      <CardContent ev={ev} />
+    </Link>
+  );
+}
+
+/** Улетающая копия карточки: следующая уже видна под ней, это только анимация. */
+function FlyingCard({ ev, dir, fromDx, onDone }) {
+  const ref = useRef(null);
+  const done = useEffectEvent(onDone);
+
+  useLayoutEffect(() => {
+    const anim = ref.current.animate(
+      [
+        { transform: cardTransform(fromDx) },
+        { transform: `translateX(${dir * (window.innerWidth + 160)}px) rotate(${dir * 28}deg)` },
+      ],
+      { duration: FLY_MS, easing: 'ease-in', fill: 'forwards' },
+    );
+    anim.onfinish = () => done();
+    return () => anim.cancel();
+  }, [dir, fromDx]);
+
+  return (
+    <div ref={ref} aria-hidden="true" className={s.card} style={{ pointerEvents: 'none' }}>
+      <CardContent ev={ev} />
+    </div>
+  );
+}
 
 /** Колода по одному поисковому запросу q (пустой — вся лента). */
 function Deck({ q }) {
@@ -59,12 +221,20 @@ function Deck({ q }) {
 
   const ev = deck[i];
 
-  // Оптимистично: следующая карточка сразу, свайп уходит в фоне.
-  const swipe = (action) => {
-    if (!ev) return;
-    setI(i + 1);
+  const swipedIds = useRef(new Set());   // каждую карточку свайпаем один раз: жест и кнопка не задвоят
+  const [flying, setFlying] = useState([]);
+  const likeBtn = useRef(null);
+  const skipBtn = useRef(null);
+
+  // Оптимистично: следующая карточка сразу, свайп уходит в фоне,
+  // а свайпнутая улетает поверх неё анимацией.
+  const swipe = (card, action, fromDx = 0) => {
+    if (!card || swipedIds.current.has(card.id)) return;
+    swipedIds.current.add(card.id);
+    if (!reducedMotion()) setFlying((f) => [...f, { ev: card, dir: action === 'like' ? 1 : -1, fromDx }]);
+    setI((n) => n + 1);
     pending.current += 1;
-    swipeEvent(ev.id, action)
+    swipeEvent(card.id, action)
       // 409 — сервер этот свайп уже учёл. Остальные ошибки пользователю не показываем:
       // 401 перехватывает AuthGate, а неучтённое событие просто останется в выдаче.
       .then(() => true, (err) => err instanceof ApiError && err.status === 409)
@@ -74,6 +244,15 @@ function Deck({ q }) {
       });
   };
 
+  // Пока карточку тянут, кнопка того же действия подрастает — подсказка, что сейчас случится.
+  const hint = (dx) => {
+    const p = Math.max(-1, Math.min(1, dx / SWIPE_DISTANCE));
+    if (likeBtn.current) likeBtn.current.style.transform = p > 0 ? `scale(${1 + 0.18 * p})` : '';
+    if (skipBtn.current) skipBtn.current.style.transform = p < 0 ? `scale(${1 - 0.18 * p})` : '';
+  };
+
+  const landed = (id) => setFlying((f) => f.filter((x) => x.ev.id !== id));
+
   if (ev) {
     return (
       <>
@@ -82,41 +261,21 @@ function Deck({ q }) {
             <div className={s.behind2} />
             <div className={s.behind1} />
 
-            <Link to={`/event/${ev.id}`} className={s.card}>
-              <div className={s.cover}>
-                <EventCover cover={ev.cover} image={ev.image} />
-                <span className={s.rubric}>{ev.rubric}</span>
-              </div>
+            <SwipeCard key={ev.id} ev={ev} onDrag={hint} onRelease={(action, dx) => swipe(ev, action, dx)} />
 
-              <div className={s.body}>
-                <h2 className={s.title}>{ev.title}</h2>
-
-                <div className={s.meta}>
-                  <IconCalendar size={17} />
-                  <span className={s.metaText}>{ev.when}</span>
-                </div>
-
-                <div className={s.meta}>
-                  <IconPin size={17} />
-                  <span className={s.metaText}>{ev.place}</span>
-                </div>
-
-                <div className={s.badges}>
-                  <span className={shared.badge}>{ev.price}</span>
-                  <span className={shared.badge}>{ev.age}</span>
-                </div>
-              </div>
-            </Link>
+            {flying.map((f) => (
+              <FlyingCard key={f.ev.id} ev={f.ev} dir={f.dir} fromDx={f.fromDx} onDone={() => landed(f.ev.id)} />
+            ))}
           </div>
 
           <span className={s.counter}>{i + 1} из {Math.max(total, deck.length)}</span>
         </div>
 
         <div className={s.actions}>
-          <button type="button" aria-label="Пропустить" onClick={() => swipe('skip')} className={s.skip}>
+          <button ref={skipBtn} type="button" aria-label="Пропустить" onClick={() => swipe(ev, 'skip')} className={s.skip}>
             <IconClose size={24} className={s.skipIcon} />
           </button>
-          <button type="button" aria-label="В избранное" onClick={() => swipe('like')} className={s.like}>
+          <button ref={likeBtn} type="button" aria-label="В избранное" onClick={() => swipe(ev, 'like')} className={s.like}>
             <IconHeartFilled size={31} />
           </button>
         </div>
