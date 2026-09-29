@@ -1,0 +1,675 @@
+openapi: 3.0.3
+info:
+  title: GoSwipe API
+  description: >
+    Бэкенд мини-аппа «GoSwipe» в мессенджере Макс. Персональная лента мероприятий
+    с фильтрами и скорингом по интересам пользователя, без рекомендательной системы.
+  version: "1.1.0"
+
+servers:
+  - url: http://localhost:8080/api
+    description: Локальная разработка
+
+tags:
+  - name: auth
+    description: Авторизация через MAX и онбординг
+  - name: events
+    description: Лента, поиск, фильтры, создание мероприятий
+  - name: swipes
+    description: Лайк/скип карточки на главной
+  - name: favorites
+    description: Экран избранного
+  - name: profile
+    description: Профиль и предпочтения
+  - name: uploads
+    description: Загрузка изображений
+
+paths:
+  /auth/max:
+    post:
+      tags: [auth]
+      summary: Вход через MAX
+      description: >
+        Проверяет initData, полученный мини-приложением от MAX
+        (bridge.getLaunchParams). Если пользователь заходит первый раз —
+        создаёт запись в users и возвращает need_onboarding=true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [init_data]
+              properties:
+                init_data:
+                  type: string
+                  description: Сырая строка initData от MAX Bridge
+      responses:
+        "200":
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Сессионный токен для последующих запросов
+                  need_onboarding:
+                    type: boolean
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Подпись initData не прошла проверку
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/onboarding:
+    post:
+      tags: [auth]
+      summary: Первичная анкета интересов
+      description: Заполняется один раз при первом входе, проставляет стартовые веса в user_interests.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [city, categories]
+              properties:
+                city:
+                  type: string
+                  example: Москва
+                birth_date:
+                  type: string
+                  format: date
+                  example: "2003-05-14"
+                  description: >
+                    Заменяет прежнее поле birth_year — БД хранит полную дату
+                    рождения (birth_date), не только год.
+                categories:
+                  type: array
+                  description: Выбранные на онбординге категории — получат стартовый positive-вес
+                  items:
+                    $ref: "#/components/schemas/EventCategory"
+                onboarding_text:
+                  type: string
+                  maxLength: 500
+                  description: >
+                    Свободный текст «люблю то-то», опционально размечается LLM в теги.
+                    На бэкенде сохраняется в колонку users.info.
+      responses:
+        "200":
+          description: Профиль заполнен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /events:
+    get:
+      tags: [events]
+      summary: Лента мероприятий (поиск + фильтры + скоринг)
+      description: >
+        Возвращает события с starts_at в будущем (status=active),
+        отсортированные по персональному скору (совпадение с user_interests).
+        Уже просмотренные (лайк/скип) исключены.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          description: Поиск по названию
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/EventCategory"
+        - name: is_free
+          in: query
+          description: Только бесплатные
+          schema:
+            type: boolean
+        - name: price_max
+          in: query
+          schema:
+            type: integer
+        - name: age_limit
+          in: query
+          description: Максимально допустимый возрастной ценз (по умолчанию берётся из профиля)
+          schema:
+            type: integer
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Список карточек для ленты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+
+    post:
+      tags: [events]
+      summary: Создать мероприятие
+      description: >
+        Экран «создать мероприятие». Событие сохраняется с source='user',
+        created_by=id автора и сразу видно всем — модерации нет.
+        Появляется в общей ленте (GET /events) сразу же, пока starts_at
+        не наступил.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Мероприятие создано и сразу видно в ленте
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "400":
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/mine:
+    get:
+      tags: [events]
+      summary: Мои мероприятия
+      description: >
+        Все события, созданные текущим пользователем (created_by = id
+        текущего пользователя), включая уже прошедшие (finished).
+        Формат ответа идентичен GET /events.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Список мероприятий пользователя, отсортирован по starts_at по убыванию
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+
+  /events/{eventId}:
+    get:
+      tags: [events]
+      summary: Подробная информация о мероприятии
+      description: Используется на экране «точно иду» — показывает адрес, ссылку на билеты/регистрацию и т.д.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "200":
+          description: Полная карточка
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Не найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /events/{eventId}/swipe:
+    post:
+      tags: [swipes]
+      summary: Лайк или скип карточки на главной
+      description: >
+        Пишет строку в swipes и обновляет вес категории/тегов события
+        в user_interests (delta: like=+1, skip=-0.5).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [like, skip]
+      responses:
+        "200":
+          description: Свайп записан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Swipe"
+        "409":
+          description: Событие уже было свайпнуто этим пользователем
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /favorites:
+    get:
+      tags: [favorites]
+      summary: Список избранного
+      description: Все события с action=like. Свежесвайпнутые и «пока не решил» идут первыми, порядок задаётся сортировкой по created_at.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: confirmed
+          in: query
+          description: Фильтр по статусу решения (true = точно иду, false = пока не решил)
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Список избранных карточек
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FavoriteItem"
+
+  /favorites/{eventId}:
+    patch:
+      tags: [favorites]
+      summary: Решение по карточке избранного (свайп влево/вправо)
+      description: >
+        Свайп вправо → confirmed=true, ставит remind_at, ответ включает
+        полную карточку с деталями участия. Свайп влево («пока не решил») —
+        отдельного вызова не требует, карточка просто переставляется на
+        фронте; используйте PATCH только для подтверждения участия.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed:
+                  type: boolean
+                  example: true
+      responses:
+        "200":
+          description: Статус обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteItem"
+        "404":
+          description: Карточки нет в избранном
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags: [favorites]
+      summary: Удалить карточку из избранного
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      responses:
+        "204":
+          description: Удалено
+        "404":
+          description: Карточки нет в избранном
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile:
+    get:
+      tags: [profile]
+      summary: Профиль пользователя
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Профиль с текущими весами интересов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+    patch:
+      tags: [profile]
+      summary: Изменить предпочтения
+      description: >
+        Город, дата рождения, точечная правка весов интересов. Все поля
+        независимо опциональны — присылайте только то, что реально
+        изменилось.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                city:
+                  type: string
+                birth_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  example: "2003-05-14"
+                interests:
+                  type: array
+                  description: >
+                    Частичное обновление: upsert по тегу (INSERT ... ON
+                    CONFLICT (user_id, tag) DO UPDATE SET weight =
+                    EXCLUDED.weight). Не полная замена — теги, которых нет
+                    в списке, не трогаются и сохраняют текущий вес (в т.ч.
+                    выученный по свайпам). Пустой массив [] означает
+                    «ничего не апдейтить», а не «удалить все интересы» —
+                    для удаления используйте remove_interests.
+                  items:
+                    $ref: "#/components/schemas/Interest"
+                remove_interests:
+                  type: array
+                  description: >
+                    Список тегов, которые нужно полностью удалить из
+                    интересов пользователя (осознанное действие «убрать
+                    категорию»), а не просто оставить без изменений.
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /uploads:
+    post:
+      tags: [uploads]
+      summary: Загрузить обложку мероприятия
+      description: >
+        Принимает изображение, сохраняет локально на сервере (без S3 —
+        для MVP не нужен), возвращает публичный URL. Этот URL фронт
+        подставляет в EventInput.image_url при создании мероприятия.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: png, jpeg или webp, не более 5 МБ
+      responses:
+        "201":
+          description: Файл сохранён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    example: "https://<домен>/uploads/3f2b1c.jpg"
+        "400":
+          description: Неверный формат или файл превышает 5 МБ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Токен, выданный /auth/max
+
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    EventCategory:
+      type: string
+      enum:
+        - music
+        - theatre
+        - exhibition
+        - cinema
+        - sport
+        - outdoor
+        - party
+        - food
+        - education
+        - volunteering
+        - other
+
+    EventStatus:
+      type: string
+      description: >
+        Модерации нет — событие видно сразу после создания.
+        active — starts_at ещё не наступил. finished — starts_at уже прошёл.
+        Оба значения вычисляются бэкендом на чтении, не хранятся и не
+        задаются клиентом.
+      enum: [active, finished]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        max_user_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 64
+          nullable: true
+        city:
+          type: string
+          maxLength: 64
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Interest:
+      type: object
+      properties:
+        tag:
+          type: string
+          description: Категория или произвольный тег
+        weight:
+          type: number
+          format: float
+
+    Profile:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        interests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Interest"
+
+    EventInput:
+      type: object
+      required: [title, description, category, city, starts_at]
+      properties:
+        title:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 2048
+        category:
+          $ref: "#/components/schemas/EventCategory"
+        tags:
+          type: array
+          items:
+            type: string
+        city:
+          type: string
+          maxLength: 64
+        venue:
+          type: string
+          maxLength: 256
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        price:
+          type: integer
+          default: 0
+        age_limit:
+          type: integer
+          default: 0
+        url:
+          type: string
+          maxLength: 512
+        image_url:
+          type: string
+          maxLength: 512
+          description: Ссылка на обложку. Можно получить через POST /uploads.
+
+    Event:
+      allOf:
+        - $ref: "#/components/schemas/EventInput"
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            status:
+              $ref: "#/components/schemas/EventStatus"
+            source:
+              type: string
+              maxLength: 50
+            is_synthetic:
+              type: boolean
+              description: >
+                Вычисляется бэкендом как (source == 'synthetic').
+                Тестовые/синтетические данные — явно помечено согласно
+                требованиям хакатона.
+            created_by:
+              type: string
+              format: uuid
+              nullable: true
+            fetched_at:
+              type: string
+              format: date-time
+
+    EventList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        total:
+          type: integer
+
+    Swipe:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [like, skip]
+        confirmed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    FavoriteItem:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/Event"
+        confirmed:
+          type: boolean
+          description: true = «точно иду», false = «пока не решил»
+        remind_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

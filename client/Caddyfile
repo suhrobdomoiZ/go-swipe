@@ -1,0 +1,10 @@
+{$DOMAIN} {
+    handle /api/* {
+        reverse_proxy server:{$PORT}
+    }
+    handle {
+        root * /srv/goswipe
+        try_files {path} /index.html
+        file_server
+    }
+}
