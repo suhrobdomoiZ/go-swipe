@@ -5,11 +5,55 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>client</title>
-    <!-- MAX Bridge: window.WebApp с initData. Синхронно, чтобы мост был готов до старта приложения. -->
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <style>
+      /* Стартовый экран до загрузки бандла: без него вебвью показывает пустой чёрный фон. */
+      body { margin: 0; background: #07050D; }
+      #boot {
+        min-height: 100dvh; box-sizing: border-box; padding: 24px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+        text-align: center; font: 15px/1.5 system-ui, -apple-system, sans-serif; color: #B9AFD0;
+      }
+      #boot-text { margin: 0; max-width: 280px; }
+      #boot-retry {
+        display: none; height: 52px; padding: 0 28px; border: none; border-radius: 999px;
+        font: 700 15px system-ui, -apple-system, sans-serif; color: #fff; cursor: pointer;
+        background: linear-gradient(140deg, #9333EA 0%, #D946EF 55%, #F97316 100%);
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- React заменит содержимое #root. Если бандл не загрузится, здесь останется понятное сообщение. -->
+    <div id="root">
+      <div id="boot">
+        <p id="boot-text">Загружаем…</p>
+        <button id="boot-retry" type="button">Обновить</button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var shown = false;
+        function fail(text) {
+          if (shown || !document.getElementById('boot')) return;
+          shown = true;
+          document.getElementById('boot-text').textContent = text;
+          var retry = document.getElementById('boot-retry');
+          retry.style.display = 'inline-block';
+          retry.onclick = function () { location.reload(); };
+        }
+        // Не загрузился свой скрипт или стиль (например, устаревшая ссылка на бандл прошлой сборки).
+        window.addEventListener('error', function (e) {
+          var el = e.target;
+          var url = el && (el.src || el.href);
+          if (url && (el.tagName === 'SCRIPT' || el.tagName === 'LINK') && url.indexOf(location.origin) === 0) {
+            fail('Не удалось загрузить приложение. Обнови страницу.');
+          }
+        }, true);
+        setTimeout(function () { fail('Приложение долго загружается. Попробуй обновить.'); }, 15000);
+      })();
+    </script>
+    <!-- MAX Bridge: window.WebApp с initData. В конце body, чтобы медленный st.max.ru не держал пустой экран;
+         классический скрипт всё равно выполнится раньше модуля приложения. -->
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

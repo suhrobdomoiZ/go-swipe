@@ -2,6 +2,7 @@
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 const TOKEN_KEY = 'goswipe.token';
+const DEFAULT_TIMEOUT_MS = 15000;
 
 // В вебвью MAX localStorage может быть недоступен (или бросать на доступе),
 // поэтому токен всегда дублируется в памяти.
@@ -73,9 +74,12 @@ async function readJson(res) {
  * query  — объект query-параметров, пустые значения отбрасываются
  * body   — объект уходит как JSON, FormData — как multipart
  * signal — AbortSignal; отмена пробрасывается как есть (AbortError)
+ * timeout — мс до ответа целиком; зависший запрос становится ApiError 'timeout', а не вечным спиннером
  * notifyUnauthorized — сообщать ли подписчику о 401 (для самого входа — нет)
  */
-export async function request(path, { method = 'GET', query, body, signal, notifyUnauthorized = true } = {}) {
+export async function request(path, {
+  method = 'GET', query, body, signal, timeout = DEFAULT_TIMEOUT_MS, notifyUnauthorized = true,
+} = {}) {
   if (!BASE_URL) {
     throw new ApiError(0, 'no_api_url', 'Не задан адрес API (VITE_API_URL)');
   }
@@ -92,17 +96,32 @@ export async function request(path, { method = 'GET', query, body, signal, notif
     payload = JSON.stringify(body);
   }
 
+  // Свой контроллер: отменяется и по сигналу вызывающего, и по таймауту.
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, timeout);
+  const forwardAbort = () => ctrl.abort(signal.reason);
+  if (signal?.aborted) forwardAbort();
+  else signal?.addEventListener('abort', forwardAbort, { once: true });
+
   let res;
+  let data;
   try {
-    res = await fetch(BASE_URL + path + buildQuery(query), { method, headers, body: payload, signal });
+    res = await fetch(BASE_URL + path + buildQuery(query), { method, headers, body: payload, signal: ctrl.signal });
+    data = res.status === 204 ? null : await readJson(res);
   } catch (err) {
+    if (timedOut) throw new ApiError(0, 'timeout', 'Сервер не отвечает');
     if (err.name === 'AbortError') throw err;
     throw new ApiError(0, 'network_error', 'Нет связи с сервером');
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', forwardAbort);
   }
 
   if (res.status === 204) return null;
-
-  const data = await readJson(res);
   if (!res.ok) {
     const err = new ApiError(
       res.status,

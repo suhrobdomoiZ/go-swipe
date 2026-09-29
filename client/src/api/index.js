@@ -114,6 +114,7 @@ export async function updateProfile(form, { signal } = {}) {
 export async function uploadImage(file, { signal } = {}) {
   const body = new FormData();
   body.append('file', file);
-  const data = await request('/uploads', { method: 'POST', body, signal });
+  // До 5 МБ по мобильной сети — таймаут длиннее обычного.
+  const data = await request('/uploads', { method: 'POST', body, signal, timeout: 60000 });
   return data.url;
 }
