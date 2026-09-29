@@ -67,18 +67,19 @@ func (r *User) UpdateOnboarding(ctx context.Context, id uuid.UUID, city string, 
 	return userDomain, nil
 }
 
-func (r *User) UpdateCity(ctx context.Context, id uuid.UUID, city string) (domain.User, error) {
+func (r *User) UpdateProfile(ctx context.Context, id uuid.UUID, city *string, birthDate *time.Time) (domain.User, error) {
 	query := `
-		UPDATE users SET city = $2
+		UPDATE users
+		SET city = COALESCE($2, city), birth_date = COALESCE($3, birth_date)
 		WHERE id = $1
 		RETURNING id, max_user_id, name, city, birth_date, info, created_at
 	`
-	userDomain, err := scanUser(r.GetExecutor(ctx).QueryRow(ctx, query, id, city))
+	userDomain, err := scanUser(r.GetExecutor(ctx).QueryRow(ctx, query, id, city, birthDate))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.User{}, domain.NewNotFound(domain.CodeNotFound, "user.UpdateCity: user not found", err)
+			return domain.User{}, domain.NewNotFound(domain.CodeNotFound, "user.UpdateProfile: user not found", err)
 		}
-		return domain.User{}, domain.NewInternalServerError(domain.CodeInternalServerError, "user.UpdateCity: update user", err)
+		return domain.User{}, domain.NewInternalServerError(domain.CodeInternalServerError, "user.UpdateProfile: update user", err)
 	}
 	return userDomain, nil
 }

@@ -157,7 +157,7 @@ type EventInput struct {
 	City        string
 	Venue       *string
 	StartsAt    time.Time
-	EndsAt      time.Time
+	EndsAt      *time.Time
 	Price       int
 	AgeLimit    int
 	URL         *string
@@ -184,7 +184,7 @@ func (s *Events) Create(ctx context.Context, userID uuid.UUID, input EventInput)
 	if !input.StartsAt.After(time.Now()) {
 		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: starts_at must be in the future")
 	}
-	if !input.EndsAt.After(input.StartsAt) {
+	if input.EndsAt != nil && !input.EndsAt.After(input.StartsAt) {
 		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: ends_at must be after starts_at")
 	}
 	if input.Price < 0 {

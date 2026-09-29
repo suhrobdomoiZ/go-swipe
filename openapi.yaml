@@ -380,7 +380,10 @@ paths:
     patch:
       tags: [profile]
       summary: Изменить предпочтения
-      description: Город, ручная корректировка весов интересов.
+      description: >
+        Город, дата рождения, точечная правка весов интересов. Все поля
+        независимо опциональны — присылайте только то, что реально
+        изменилось.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -391,11 +394,31 @@ paths:
               properties:
                 city:
                   type: string
+                birth_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  example: "2003-05-14"
                 interests:
                   type: array
-                  description: Полная замена набора весов, которые пользователь правит вручную
+                  description: >
+                    Частичное обновление: upsert по тегу (INSERT ... ON
+                    CONFLICT (user_id, tag) DO UPDATE SET weight =
+                    EXCLUDED.weight). Не полная замена — теги, которых нет
+                    в списке, не трогаются и сохраняют текущий вес (в т.ч.
+                    выученный по свайпам). Пустой массив [] означает
+                    «ничего не апдейтить», а не «удалить все интересы» —
+                    для удаления используйте remove_interests.
                   items:
                     $ref: "#/components/schemas/Interest"
+                remove_interests:
+                  type: array
+                  description: >
+                    Список тегов, которые нужно полностью удалить из
+                    интересов пользователя (осознанное действие «убрать
+                    категорию»), а не просто оставить без изменений.
+                  items:
+                    type: string
       responses:
         "200":
           description: Профиль обновлён
@@ -531,7 +554,7 @@ components:
 
     EventInput:
       type: object
-      required: [title, description, category, city, starts_at, ends_at]
+      required: [title, description, category, city, starts_at]
       properties:
         title:
           type: string
@@ -557,6 +580,7 @@ components:
         ends_at:
           type: string
           format: date-time
+          nullable: true
         price:
           type: integer
           default: 0

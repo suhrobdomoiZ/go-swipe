@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
@@ -49,7 +50,18 @@ func (h *Profile) Update(ctx *echo.Context) error {
 		interests = &converted
 	}
 
-	user, updatedInterests, err := h.service.Update(ctx.Request().Context(), userID, req.City, interests)
+	var birthDate *time.Time
+	if req.BirthDate != nil && *req.BirthDate != "" {
+		parsed, err := time.Parse(time.DateOnly, *req.BirthDate)
+		if err != nil {
+			err = domain.NewBadRequest(domain.CodeBadRequest, "profile.Update: birth_date must be YYYY-MM-DD", err)
+
+			return domain.MapAppError(ctx, err)
+		}
+		birthDate = &parsed
+	}
+
+	user, updatedInterests, err := h.service.Update(ctx.Request().Context(), userID, req.City, interests, req.RemoveInterests, birthDate)
 	if err != nil {
 		return domain.MapAppError(ctx, err)
 	}

@@ -46,7 +46,9 @@ services:
     restart: always
 
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     depends_on:
       - server
     environment:
@@ -56,7 +58,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy-data:/data
       - caddy-config:/config
     restart: always

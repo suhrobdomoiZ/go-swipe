@@ -3,6 +3,13 @@ package services
 import (
 	"strings"
 	"time"
+
+	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
+)
+
+const (
+	minPlausibleAge = 10
+	maxPlausibleAge = 110
 )
 
 func calculateAge(birthDate, now time.Time) int {
@@ -11,6 +18,17 @@ func calculateAge(birthDate, now time.Time) int {
 		age--
 	}
 	return age
+}
+
+func validateBirthDate(birthDate *time.Time) error {
+	if birthDate == nil {
+		return nil
+	}
+	age := calculateAge(*birthDate, time.Now())
+	if age < minPlausibleAge || age > maxPlausibleAge {
+		return domain.NewBadRequest(domain.CodeBadRequest, "birth date gives an implausible age")
+	}
+	return nil
 }
 
 func truncateRunes(s string, max int) string {

@@ -37,6 +37,8 @@ func ToProfileDTO(user domain.User, interests []domain.Interest) ProfileDTO {
 }
 
 type ProfilePatchRequestDTO struct {
-	City      *string        `json:"city"`
-	Interests *[]InterestDTO `json:"interests"`
+	City            *string        `json:"city"`
+	Interests       *[]InterestDTO `json:"interests"`
+	RemoveInterests []string       `json:"remove_interests"`
+	BirthDate       *string        `json:"birth_date"`
 }

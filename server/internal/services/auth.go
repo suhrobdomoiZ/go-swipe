@@ -68,11 +68,8 @@ func (s *Auth) Onboarding(
 		return domain.User{}, domain.NewBadRequest(domain.CodeBadRequest, "auth.Onboarding: city is too long")
 	}
 
-	if birthDate != nil {
-		age := calculateAge(*birthDate, time.Now())
-		if age < 10 || age > 110 {
-			return domain.User{}, domain.NewBadRequest(domain.CodeBadRequest, "auth.Onboarding: birth date gives an implausible age")
-		}
+	if err := validateBirthDate(birthDate); err != nil {
+		return domain.User{}, err
 	}
 
 	validCategories := make([]domain.EventCategory, 0, len(categories))

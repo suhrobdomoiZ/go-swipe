@@ -83,7 +83,7 @@ type Event struct {
 	City        string
 	Venue       *string
 	StartsAt    time.Time
-	EndsAt      time.Time
+	EndsAt      *time.Time
 	Price       int
 	AgeLimit    int
 	URL         *string

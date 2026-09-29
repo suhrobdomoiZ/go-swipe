@@ -16,7 +16,7 @@ type EventDTO struct {
 	City        string     `json:"city"`
 	Venue       *string    `json:"venue"`
 	StartsAt    time.Time  `json:"starts_at"`
-	EndsAt      time.Time  `json:"ends_at"`
+	EndsAt      *time.Time `json:"ends_at"`
 	Price       int        `json:"price"`
 	AgeLimit    int        `json:"age_limit"`
 	URL         *string    `json:"url"`
@@ -73,16 +73,16 @@ func ToEventListDTO(events []domain.Event, total int) EventListDTO {
 }
 
 type EventInputDTO struct {
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Category    string    `json:"category"`
-	Tags        []string  `json:"tags"`
-	City        string    `json:"city"`
-	Venue       *string   `json:"venue"`
-	StartsAt    time.Time `json:"starts_at"`
-	EndsAt      time.Time `json:"ends_at"`
-	Price       int       `json:"price"`
-	AgeLimit    int       `json:"age_limit"`
-	URL         *string   `json:"url"`
-	ImageURL    *string   `json:"image_url"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Category    string     `json:"category"`
+	Tags        []string   `json:"tags"`
+	City        string     `json:"city"`
+	Venue       *string    `json:"venue"`
+	StartsAt    time.Time  `json:"starts_at"`
+	EndsAt      *time.Time `json:"ends_at"`
+	Price       int        `json:"price"`
+	AgeLimit    int        `json:"age_limit"`
+	URL         *string    `json:"url"`
+	ImageURL    *string    `json:"image_url"`
 }

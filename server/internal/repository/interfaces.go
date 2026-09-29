@@ -33,7 +33,7 @@ type IUser interface {
 	GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
 
 	UpdateOnboarding(ctx context.Context, id uuid.UUID, city string, birthDate *time.Time, info *string) (domain.User, error)
-	UpdateCity(ctx context.Context, id uuid.UUID, city string) (domain.User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, city *string, birthDate *time.Time) (domain.User, error)
 }
 
 type EventFeedFilter struct {
@@ -68,6 +68,7 @@ type ISwipe interface {
 
 type IUserInterest interface {
 	IncrementWeights(ctx context.Context, userID uuid.UUID, deltas map[string]float64) error
-	ReplaceAll(ctx context.Context, userID uuid.UUID, interests []domain.Interest) error
+	UpsertMany(ctx context.Context, userID uuid.UUID, interests []domain.Interest) error
+	RemoveTags(ctx context.Context, userID uuid.UUID, tags []string) error
 	List(ctx context.Context, userID uuid.UUID) ([]domain.Interest, error)
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/suhrobdomoiZ/go-swipe/server/internal/domain"
@@ -33,7 +34,14 @@ func (s *Profile) Get(ctx context.Context, userID uuid.UUID) (domain.User, []dom
 	return user, interests, nil
 }
 
-func (s *Profile) Update(ctx context.Context, userID uuid.UUID, city *string, interests *[]domain.Interest) (domain.User, []domain.Interest, error) {
+func (s *Profile) Update(
+	ctx context.Context,
+	userID uuid.UUID,
+	city *string,
+	interests *[]domain.Interest,
+	removeInterests []string,
+	birthDate *time.Time,
+) (domain.User, []domain.Interest, error) {
 	if city != nil {
 		trimmed := strings.TrimSpace(*city)
 		if trimmed == "" {
@@ -45,19 +53,29 @@ func (s *Profile) Update(ctx context.Context, userID uuid.UUID, city *string, in
 		city = &trimmed
 	}
 
+	if err := validateBirthDate(birthDate); err != nil {
+		return domain.User{}, nil, err
+	}
+
 	var normalizedInterests []domain.Interest
 	if interests != nil {
 		normalizedInterests = normalizeInterests(*interests)
 	}
+	normalizedRemoveTags := normalizeRemoveTags(removeInterests)
 
 	err := s.tx.WithTransaction(ctx, func(ctx context.Context) error {
-		if city != nil {
-			if _, err := s.users.UpdateCity(ctx, userID, *city); err != nil {
+		if city != nil || birthDate != nil {
+			if _, err := s.users.UpdateProfile(ctx, userID, city, birthDate); err != nil {
 				return err
 			}
 		}
 		if interests != nil {
-			if err := s.interests.ReplaceAll(ctx, userID, normalizedInterests); err != nil {
+			if err := s.interests.UpsertMany(ctx, userID, normalizedInterests); err != nil {
+				return err
+			}
+		}
+		if len(normalizedRemoveTags) > 0 {
+			if err := s.interests.RemoveTags(ctx, userID, normalizedRemoveTags); err != nil {
 				return err
 			}
 		}
@@ -68,6 +86,23 @@ func (s *Profile) Update(ctx context.Context, userID uuid.UUID, city *string, in
 	}
 
 	return s.Get(ctx, userID)
+}
+
+func normalizeRemoveTags(tags []string) []string {
+	seen := make(map[string]struct{}, len(tags))
+	result := make([]string, 0, len(tags))
+	for _, raw := range tags {
+		tag := normalizeTag(raw)
+		if tag == "" {
+			continue
+		}
+		if _, ok := seen[tag]; ok {
+			continue
+		}
+		seen[tag] = struct{}{}
+		result = append(result, tag)
+	}
+	return result
 }
 
 func normalizeInterests(interests []domain.Interest) []domain.Interest {
