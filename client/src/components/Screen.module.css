@@ -1,5 +1,6 @@
 .screen {
   position: relative;
+  min-height: 100vh; /* запасной вариант для вебвью без dvh */
   min-height: 100dvh;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);

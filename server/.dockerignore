@@ -1,6 +1,6 @@
 .git/
 .github/
-.env.example
-.golangci.yaml
+.env
 .gitignore
-
+README.md
+openapi.yaml
