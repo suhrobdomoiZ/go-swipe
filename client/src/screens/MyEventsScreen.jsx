@@ -4,7 +4,7 @@ import EventCover from '../components/EventCover';
 import ErrorState from '../components/ErrorState';
 import Loader from '../components/Loader';
 import Screen from '../components/Screen';
-import { IconCalendarBig, IconPlus } from '../components/icons';
+import { IconCalendarBig, IconEdit, IconPlus } from '../components/icons';
 import { BackHeader, EmptyState } from '../components/ui';
 import s from './MyEventsScreen.module.css';
 import { ApiError, getMyEvents } from '../api';
@@ -14,7 +14,7 @@ const LIMIT = 50;
 
 /**
  * Мероприятия, созданные пользователем. Статус только «Завершено» (из starts_at):
- * модерации нет. Редактирования и удаления нет — в API нет таких ручек.
+ * модерации нет. Редактировать можно ещё не начавшееся событие (PATCH /events/{id}); удаления в API нет.
  */
 export default function MyEventsScreen() {
   const [items, setItems] = useState(null);
@@ -68,6 +68,14 @@ export default function MyEventsScreen() {
                   {it.status && <span className={`${s.status} ${s.statusDone}`}>{it.status}</span>}
                 </div>
               </div>
+              {it.editable && (
+                <div className={s.actions}>
+                  <Link to={`/event/${it.id}/edit`} className={s.edit}>
+                    <IconEdit size={15} aria-hidden="true" />
+                    Редактировать
+                  </Link>
+                </div>
+              )}
             </div>
           ))
         )}

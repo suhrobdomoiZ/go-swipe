@@ -1,13 +1,15 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import CoverPicker from '../components/CoverPicker';
+import ErrorState from '../components/ErrorState';
 import FormError from '../components/FormError';
+import Loader from '../components/Loader';
 import Screen from '../components/Screen';
 import { IconInfo } from '../components/icons';
 import { BackHeader, Select, ChipGroup } from '../components/ui';
 import shared from '../styles/shared.module.css';
 import s from './CreateEventScreen.module.css';
-import { ApiError, createEvent } from '../api';
+import { ApiError, createEvent, getEventForm, updateEvent } from '../api';
 import { CATEGORY_LABELS } from '../api/categories';
 import { CITIES } from '../lib/cities';
 import { useSession } from '../lib/session';
@@ -16,16 +18,63 @@ const AGES = ['0+', '6+', '12+', '16+', '18+'];
 
 function publishErrorText(err) {
   if (err instanceof ApiError && err.status === 400) return `Сервер не принял мероприятие: ${err.message}`;
+  if (err instanceof ApiError && err.status === 403) return 'Редактировать можно только свои мероприятия.';
   if (err instanceof ApiError && err.status === 0) return 'Нет связи с сервером. Проверь интернет и попробуй ещё раз.';
   return 'Не получилось опубликовать. Попробуй ещё раз.';
 }
 
+/** /create — новое мероприятие, /event/:id/edit — редактирование своего. */
 export default function CreateEventScreen() {
+  const { id } = useParams();
+  const [initial, setInitial] = useState(null);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!id) return undefined;
+    const ctrl = new AbortController();
+    setInitial(null);
+    setError(null);
+    getEventForm(id, { signal: ctrl.signal })
+      .then(setInitial)
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(err);
+      });
+    return () => ctrl.abort();
+  }, [id, attempt]);
+
+  if (!id) return <EventForm />;
+
+  if (error) {
+    return (
+      <Screen preset="form">
+        <BackHeader to="/my" title="Редактирование" />
+        <ErrorState
+          title="Не удалось загрузить мероприятие"
+          text="Проверь интернет и попробуй ещё раз."
+          onAction={() => setAttempt((n) => n + 1)}
+        />
+      </Screen>
+    );
+  }
+  if (!initial) {
+    return (
+      <Screen preset="form">
+        <BackHeader to="/my" title="Редактирование" />
+        <Loader />
+      </Screen>
+    );
+  }
+  return <EventForm eventId={id} initial={initial} />;
+}
+
+function EventForm({ eventId, initial }) {
+  const editing = Boolean(eventId);
   const navigate = useNavigate();
   const { user } = useSession();
-  const [paid, setPaid] = useState(false);
-  const [rubrics, setRubrics] = useState([]);
-  const [imageUrl, setImageUrl] = useState('');
+  const [paid, setPaid] = useState(initial?.paid ?? false);
+  const [rubrics, setRubrics] = useState(initial?.rubrics ?? []);
+  const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
@@ -46,7 +95,7 @@ export default function CreateEventScreen() {
     setSending(true);
     setError(null);
     try {
-      await createEvent({
+      const form = {
         title: data.get('title'),
         description: data.get('description'),
         city: data.get('city'),
@@ -57,7 +106,13 @@ export default function CreateEventScreen() {
         age: data.get('age'),
         rubrics,
         imageUrl,
-      });
+        // Поля, которых нет в форме, при редактировании возвращаем как были.
+        extraTags: initial?.extraTags,
+        url: initial?.url,
+        durationMs: initial?.durationMs,
+      };
+      if (editing) await updateEvent(eventId, form);
+      else await createEvent(form);
       navigate('/my');
     } catch (err) {
       setError(publishErrorText(err));
@@ -68,7 +123,7 @@ export default function CreateEventScreen() {
   return (
     <Screen preset="form" as="form" onSubmit={submit} className={s.content}>
       <div className={s.headerBleed}>
-        <BackHeader to="/" title="Новое мероприятие" />
+        <BackHeader to={editing ? '/my' : '/'} title={editing ? 'Редактирование' : 'Новое мероприятие'} />
       </div>
 
       <div className={`${shared.glass} ${shared.panel}`}>
@@ -76,24 +131,24 @@ export default function CreateEventScreen() {
 
         <div className={shared.formRow}>
           <label className={shared.label} htmlFor="ev-title">Название</label>
-          <input id="ev-title" name="title" className={shared.field} type="text" maxLength={128} placeholder="Например, джем в гараже" required />
+          <input id="ev-title" name="title" className={shared.field} type="text" maxLength={128} placeholder="Например, джем в гараже" defaultValue={initial?.title} required />
         </div>
 
         <div className={shared.formRow}>
           <label className={shared.label} htmlFor="ev-desc">Описание</label>
-          <textarea id="ev-desc" name="description" className={shared.field} rows={3} maxLength={2048} placeholder="Что будет, для кого, что взять с собой" required />
+          <textarea id="ev-desc" name="description" className={shared.field} rows={3} maxLength={2048} placeholder="Что будет, для кого, что взять с собой" defaultValue={initial?.description} required />
         </div>
 
-        <Select id="ev-city" name="city" label="Город" options={cities} defaultValue={user?.city || CITIES[0]} />
+        <Select id="ev-city" name="city" label="Город" options={cities} defaultValue={initial?.city || user?.city || CITIES[0]} />
 
         <div className={shared.formRow}>
           <label className={shared.label} htmlFor="ev-place">Место</label>
-          <input id="ev-place" name="venue" className={shared.field} type="text" maxLength={256} placeholder="Адрес или название площадки" />
+          <input id="ev-place" name="venue" className={shared.field} type="text" maxLength={256} placeholder="Адрес или название площадки" defaultValue={initial?.venue} />
         </div>
 
         <div className={shared.formRow}>
           <label className={shared.label} htmlFor="ev-date">Дата и время</label>
-          <input id="ev-date" name="startsAt" className={shared.field} type="datetime-local" required />
+          <input id="ev-date" name="startsAt" className={shared.field} type="datetime-local" defaultValue={initial?.startsAt} required />
         </div>
 
         <div className={s.entryRow}>
@@ -105,12 +160,12 @@ export default function CreateEventScreen() {
           {paid && (
             <div className={shared.formRow}>
               <label className={shared.label} htmlFor="ev-price">Цена билета, ₽</label>
-              <input id="ev-price" name="price" className={shared.field} type="number" inputMode="numeric" min={1} placeholder="500" required />
+              <input id="ev-price" name="price" className={shared.field} type="number" inputMode="numeric" min={1} placeholder="500" defaultValue={initial?.price} required />
             </div>
           )}
         </div>
 
-        <Select id="ev-age" name="age" label="Возрастное ограничение" options={AGES} />
+        <Select id="ev-age" name="age" label="Возрастное ограничение" options={AGES} defaultValue={initial?.age} />
 
         <div className={s.chipsRow}>
           <span className={shared.label}>Рубрики</span>
@@ -123,12 +178,12 @@ export default function CreateEventScreen() {
       <div className={s.note}>
         <IconInfo size={17} aria-hidden="true" className={s.noteIcon} />
         <span className={s.noteText}>
-          Мероприятие сразу появится в ленте
+          {editing ? 'Изменения сразу увидят все' : 'Мероприятие сразу появится в ленте'}
         </span>
       </div>
 
       <button type="submit" disabled={sending || uploading} aria-busy={sending} className={s.submit}>
-        Опубликовать
+        {editing ? 'Сохранить' : 'Опубликовать'}
       </button>
     </Screen>
   );

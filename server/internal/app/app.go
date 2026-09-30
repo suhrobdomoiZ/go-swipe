@@ -73,6 +73,7 @@ func AddHandlers(config *config.AppConfig, server *echo.Echo, handlers *Handlers
 	api.POST("/events", handlers.events.Create)
 	api.GET("/events/mine", handlers.events.Mine)
 	api.GET("/events/:eventId", handlers.events.GetByID)
+	api.PATCH("/events/:eventId", handlers.events.Update)
 	api.POST("/events/:eventId/swipe", handlers.swipes.Create)
 
 	api.GET("/favorites", handlers.favorites.List)

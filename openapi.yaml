@@ -251,6 +251,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+    patch:
+      tags: [events]
+      summary: Редактировать своё мероприятие
+      description: >
+        Полная замена полей события (тело — как у POST /events, все обязательные
+        поля нужно передать заново). Править можно только события, созданные
+        текущим пользователем (source='user'), и только пока starts_at не наступил.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "200":
+          description: Мероприятие обновлено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "400":
+          description: Ошибка валидации или событие уже прошло
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Событие создано не текущим пользователем
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Не найдено
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /events/{eventId}/swipe:
     post:
       tags: [swipes]

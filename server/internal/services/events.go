@@ -165,33 +165,65 @@ type EventInput struct {
 }
 
 func (s *Events) Create(ctx context.Context, userID uuid.UUID, input EventInput) (domain.Event, error) {
+	event, err := buildEvent(input)
+	if err != nil {
+		return domain.Event{}, err
+	}
+	event.Source = domain.SourceUser
+	event.CreatedBy = &userID
+	return s.events.Create(ctx, event)
+}
+
+// Update полностью заменяет редактируемые поля мероприятия. Править можно только
+// собственные события с source='user', которые ещё не начались.
+func (s *Events) Update(ctx context.Context, userID, eventID uuid.UUID, input EventInput) (domain.Event, error) {
+	existing, err := s.events.GetByID(ctx, eventID)
+	if err != nil {
+		return domain.Event{}, err
+	}
+	if existing.Source != domain.SourceUser || existing.CreatedBy == nil || *existing.CreatedBy != userID {
+		return domain.Event{}, domain.NewForbidden(domain.CodeForbidden, "events.Update: only the author can edit an event")
+	}
+	if existing.Status() == domain.EventStatusFinished {
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Update: finished event can not be edited")
+	}
+
+	event, err := buildEvent(input)
+	if err != nil {
+		return domain.Event{}, err
+	}
+	event.ID = eventID
+	return s.events.Update(ctx, event)
+}
+
+func buildEvent(input EventInput) (domain.Event, error) {
 	title := strings.TrimSpace(input.Title)
 	if title == "" || len([]rune(title)) > maxTitleLength {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: invalid title")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: invalid title")
 	}
 	description := strings.TrimSpace(input.Description)
 	if description == "" || len([]rune(description)) > maxDescriptionLength {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: invalid description")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: invalid description")
 	}
 	city := strings.TrimSpace(input.City)
 	if city == "" || len([]rune(city)) > maxCityLength {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: invalid city")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: invalid city")
 	}
 	category := domain.EventCategory(strings.ToLower(strings.TrimSpace(input.Category)))
 	if !category.Valid() {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: invalid category")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: invalid category")
 	}
 	if !input.StartsAt.After(time.Now()) {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: starts_at must be in the future")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: starts_at must be in the future")
 	}
 	if input.EndsAt != nil && !input.EndsAt.After(input.StartsAt) {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: ends_at must be after starts_at")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: ends_at must be after starts_at")
 	}
 	if input.Price < 0 {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: price must not be negative")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: price must not be negative")
 	}
 	if !domain.ValidAgeLimit(input.AgeLimit) {
-		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: invalid age_limit")
+		return domain.Event{}, domain.NewBadRequest(domain.CodeBadRequest, "events: invalid age_limit")
 	}
 
 	venue, err := trimmedPointer(input.Venue, maxVenueLength, "venue")
@@ -207,7 +239,7 @@ func (s *Events) Create(ctx context.Context, userID uuid.UUID, input EventInput)
 		return domain.Event{}, err
 	}
 
-	event := domain.Event{
+	return domain.Event{
 		Title:       title,
 		Description: description,
 		Category:    category,
@@ -220,10 +252,7 @@ func (s *Events) Create(ctx context.Context, userID uuid.UUID, input EventInput)
 		AgeLimit:    input.AgeLimit,
 		URL:         url,
 		ImageURL:    imageURL,
-		Source:      domain.SourceUser,
-		CreatedBy:   &userID,
-	}
-	return s.events.Create(ctx, event)
+	}, nil
 }
 
 func normalizeEventTags(tags []string) []string {
@@ -255,7 +284,7 @@ func trimmedPointer(value *string, maxLen int, field string) (*string, error) {
 		return nil, nil
 	}
 	if len([]rune(trimmed)) > maxLen {
-		return nil, domain.NewBadRequest(domain.CodeBadRequest, "events.Create: "+field+" is too long")
+		return nil, domain.NewBadRequest(domain.CodeBadRequest, "events: "+field+" is too long")
 	}
 	return &trimmed, nil
 }

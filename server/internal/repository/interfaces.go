@@ -50,6 +50,7 @@ type EventFeedFilter struct {
 
 type IEvent interface {
 	Create(ctx context.Context, event domain.Event) (domain.Event, error)
+	Update(ctx context.Context, event domain.Event) (domain.Event, error)
 	GetByID(ctx context.Context, id uuid.UUID) (domain.Event, error)
 
 	ListFeed(ctx context.Context, filter EventFeedFilter) ([]domain.Event, error)

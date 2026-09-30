@@ -53,6 +53,14 @@ export function fromEventLocalTime(value) {
   return new Date(wall - offset);
 }
 
+/** Обратное к fromEventLocalTime: Date → значение datetime-local во времени события. */
+export function toEventLocalTime(value) {
+  const d = parseDate(value);
+  if (!d) return '';
+  const p = Object.fromEntries(PARTS.formatToParts(d).map((x) => [x.type, Number(x.value)]));
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}`;
+}
+
 export function formatPrice(price) {
   return price > 0 ? `${MONEY.format(price)} ₽` : 'Бесплатно';
 }
@@ -127,6 +135,35 @@ export function toMyEvent(ev) {
   return {
     ...toEventCard(ev),
     status: isFinished(ev.starts_at) ? 'Завершено' : null,
+    // PATCH /events/{id} не принимает уже начавшиеся события.
+    editable: !isFinished(ev.starts_at),
+  };
+}
+
+/**
+ * Event → значения формы создания/редактирования (обратное к toEventInput).
+ * extraTags — теги, которых нет среди рубрик (например, из сида): в форме их не видно,
+ * но при сохранении они возвращаются в API, чтобы не пропасть.
+ * durationMs — исходная длительность, чтобы при переносе начала не терять конец события.
+ */
+export function toEventForm(ev) {
+  const tags = ev.tags ?? [];
+  const startsAt = parseDate(ev.starts_at);
+  const endsAt = parseDate(ev.ends_at);
+  return {
+    title: ev.title ?? '',
+    description: ev.description ?? '',
+    city: ev.city ?? '',
+    venue: ev.venue ?? '',
+    startsAt: toEventLocalTime(ev.starts_at),
+    paid: ev.price > 0,
+    price: ev.price > 0 ? String(ev.price) : '',
+    age: formatAge(ev.age_limit),
+    rubrics: [ev.category, ...tags.filter(isCategory)].map(categoryLabel),
+    extraTags: tags.filter((t) => !isCategory(t)),
+    imageUrl: ev.image_url ?? '',
+    url: ev.url ?? '',
+    durationMs: startsAt && endsAt && endsAt > startsAt ? endsAt - startsAt : null,
   };
 }
 
@@ -213,10 +250,12 @@ export function toProfilePatch({ city, rubrics }, currentInterests = []) {
  * startsAt/endsAt — значения datetime-local, читаются во времени события (EVENT_TIME_ZONE).
  */
 export function toEventInput(form) {
-  const [category = 'other', ...tags] = toSlugs(form.rubrics);
+  const [category = 'other', ...categoryTags] = toSlugs(form.rubrics);
+  const tags = [...categoryTags, ...(form.extraTags ?? [])];
   const startsAt = fromEventLocalTime(form.startsAt);
   if (!startsAt) throw new Error('Укажи дату и время начала');
-  const endsAt = fromEventLocalTime(form.endsAt) ?? new Date(startsAt.getTime() + DEFAULT_DURATION_MS);
+  const endsAt = fromEventLocalTime(form.endsAt)
+    ?? new Date(startsAt.getTime() + (form.durationMs || DEFAULT_DURATION_MS));
 
   const input = {
     title: form.title.trim(),

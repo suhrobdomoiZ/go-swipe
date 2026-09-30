@@ -20,6 +20,7 @@ export default function App() {
             <Route path="/event/:id" element={<DetailsScreen />} />
             <Route path="/favorites" element={<FavoritesScreen />} />
             <Route path="/create" element={<CreateEventScreen />} />
+            <Route path="/event/:id/edit" element={<CreateEventScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/my" element={<MyEventsScreen />} />
             {/* MAX может открыть приложение по любому пути; без этого Routes рисует пустоту, а не экран. */}

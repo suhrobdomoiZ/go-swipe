@@ -67,6 +67,33 @@ func (r *Event) Create(ctx context.Context, e domain.Event) (domain.Event, error
 	return created, nil
 }
 
+func (r *Event) Update(ctx context.Context, e domain.Event) (domain.Event, error) {
+	tags, err := json.Marshal(e.Tags)
+	if err != nil {
+		return domain.Event{}, domain.NewInternalServerError(domain.CodeInternalServerError, "event.Update: marshal tags", err)
+	}
+
+	query := `
+		UPDATE events
+		SET title = $2, description = $3, category = $4, tags = $5, city = $6, venue = $7,
+		    starts_at = $8, ends_at = $9, price = $10, age_limit = $11, url = $12, image_url = $13
+		WHERE id = $1
+		RETURNING ` + eventColumns
+
+	row := r.GetExecutor(ctx).QueryRow(ctx, query,
+		e.ID, e.Title, e.Description, e.Category, tags, e.City, e.Venue,
+		e.StartsAt, e.EndsAt, e.Price, e.AgeLimit, e.URL, e.ImageURL,
+	)
+	updated, err := scanEvent(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Event{}, domain.NewNotFound(domain.CodeNotFound, "event.Update: event not found", err)
+		}
+		return domain.Event{}, domain.NewInternalServerError(domain.CodeInternalServerError, "event.Update: update event", err)
+	}
+	return updated, nil
+}
+
 func (r *Event) GetByID(ctx context.Context, id uuid.UUID) (domain.Event, error) {
 	query := `SELECT ` + eventColumns + ` FROM events WHERE id = $1`
 	event, err := scanEvent(r.GetExecutor(ctx).QueryRow(ctx, query, id))

@@ -107,9 +107,9 @@ func queryInt(ctx *echo.Context, key string) (int, bool, error) {
 }
 
 func (h *Events) Create(ctx *echo.Context) error {
-	var req model.EventInputDTO
-	if err := ctx.Bind(&req); err != nil {
-		return domain.MapAppError(ctx, domain.NewBadRequest(domain.CodeBadRequest, "request body is invalid", err))
+	input, err := bindEventInput(ctx)
+	if err != nil {
+		return domain.MapAppError(ctx, err)
 	}
 
 	userID, err := middleware.GetUserID(ctx)
@@ -117,7 +117,44 @@ func (h *Events) Create(ctx *echo.Context) error {
 		return domain.MapAppError(ctx, err)
 	}
 
-	event, err := h.service.Create(ctx.Request().Context(), userID, services.EventInput{
+	event, err := h.service.Create(ctx.Request().Context(), userID, input)
+	if err != nil {
+		return domain.MapAppError(ctx, err)
+	}
+
+	return ctx.JSON(http.StatusCreated, model.ToEventDTO(event))
+}
+
+func (h *Events) Update(ctx *echo.Context) error {
+	id, err := uuid.Parse(ctx.Param("eventId"))
+	if err != nil {
+		return domain.MapAppError(ctx, domain.NewBadRequest(domain.CodeBadRequest, "events.Update: invalid event id", err))
+	}
+
+	input, err := bindEventInput(ctx)
+	if err != nil {
+		return domain.MapAppError(ctx, err)
+	}
+
+	userID, err := middleware.GetUserID(ctx)
+	if err != nil {
+		return domain.MapAppError(ctx, err)
+	}
+
+	event, err := h.service.Update(ctx.Request().Context(), userID, id, input)
+	if err != nil {
+		return domain.MapAppError(ctx, err)
+	}
+
+	return ctx.JSON(http.StatusOK, model.ToEventDTO(event))
+}
+
+func bindEventInput(ctx *echo.Context) (services.EventInput, error) {
+	var req model.EventInputDTO
+	if err := ctx.Bind(&req); err != nil {
+		return services.EventInput{}, domain.NewBadRequest(domain.CodeBadRequest, "request body is invalid", err)
+	}
+	return services.EventInput{
 		Title:       req.Title,
 		Description: req.Description,
 		Category:    req.Category,
@@ -130,12 +167,7 @@ func (h *Events) Create(ctx *echo.Context) error {
 		AgeLimit:    req.AgeLimit,
 		URL:         req.URL,
 		ImageURL:    req.ImageURL,
-	})
-	if err != nil {
-		return domain.MapAppError(ctx, err)
-	}
-
-	return ctx.JSON(http.StatusCreated, model.ToEventDTO(event))
+	}, nil
 }
 
 func (h *Events) Mine(ctx *echo.Context) error {

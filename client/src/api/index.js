@@ -4,6 +4,7 @@
 import { request, setToken } from './client';
 import {
   toEventCard,
+  toEventForm,
   toEventInput,
   toFavorite,
   toMyEvent,
@@ -50,6 +51,17 @@ export async function getEvents(params = {}, { signal } = {}) {
 /** POST /events — форма создания мероприятия. */
 export async function createEvent(form, { signal } = {}) {
   const ev = await request('/events', { method: 'POST', body: toEventInput(form), signal });
+  return toEventCard(ev);
+}
+
+/** GET /events/{eventId} → значения формы редактирования. */
+export async function getEventForm(id, { signal } = {}) {
+  return toEventForm(await request(eventPath(id), { signal }));
+}
+
+/** PATCH /events/{eventId} — полная замена полей, форма та же, что при создании. */
+export async function updateEvent(id, form, { signal } = {}) {
+  const ev = await request(eventPath(id), { method: 'PATCH', body: toEventInput(form), signal });
   return toEventCard(ev);
 }
 
