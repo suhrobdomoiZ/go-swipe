@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import ErrorState from '../components/ErrorState';
 import Loader from '../components/Loader';
 import Screen from '../components/Screen';
-import { IconCalendarPlus, IconChevronRight } from '../components/icons';
+import { IconCalendarPlus, IconChevronRight, IconGear } from '../components/icons';
 import s from './ProfileScreen.module.css';
 import { getMyEvents, getProfile } from '../api';
 
@@ -42,6 +42,9 @@ export default function ProfileScreen() {
     <Screen preset="form" nav>
       <div className={s.head}>
         <h1 className={s.title}>Профиль</h1>
+        <button type="button" aria-label="Настройки" className={s.settings}>
+          <IconGear size={20} />
+        </button>
       </div>
 
       {error ? (

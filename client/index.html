@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- Мини-апп в вебвью: без зума щипком и с заходом под вырез (safe-area учтена в Screen.module.css). -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GoSwipe</title>
     <!-- Шрифты не блокируют отрисовку: если Google Fonts недоступен, приложение остаётся со шрифтом по умолчанию.
          Раньше это был @import в index.css, и он держал применение всех стилей. -->
@@ -18,7 +17,6 @@
     />
     <style>
       /* Стартовый экран до загрузки бандла: без него вебвью показывает пустой чёрный фон. */
-      html, body { overscroll-behavior: none; }
       body { margin: 0; background: #07050D; color: #F6F2FB; }
       #boot {
         min-height: 100dvh; box-sizing: border-box; padding: 24px;

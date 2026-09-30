@@ -38,17 +38,7 @@
 
 * { box-sizing: border-box; }
 
-/* Вебвью MAX: не «резинить» страницу за пределы контента, не зумить двойным тапом,
-   не раздувать текст при повороте. */
-html {
-  overscroll-behavior: none;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
 body {
-  overscroll-behavior: none;
-  touch-action: manipulation;
   margin: 0;
   background: var(--bg);
   color: var(--text);

@@ -2,13 +2,24 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 46px; /* высота бывшей кнопки настроек — шапка не «прыгает» */
   padding: 26px var(--screen-x) 0;
 }
 
 .title {
   font-size: 26px;
   font-weight: 700;
+}
+
+.settings {
+  composes: glass from '../styles/shared.module.css';
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-icon-btn);
+  cursor: pointer;
+  color: var(--icon-strong);
 }
 
 .card {
